@@ -1,0 +1,26 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/clang++",
+      "-c",
+      "-I/opt/homebrew/Cellar/glfw/3.3.8/include",
+      "-framework",
+      "Cocoa",
+      "-framework",
+      "IOKit",
+      "-framework",
+      "CoreFoundation",
+      "-Wall",
+      "-std=c++17",
+      "-Ivendor/metal-cpp",
+      "-Ivendor/metal-cpp-extensions",
+      "-DWRLD_METAL",
+      "-o",
+      "bin/game",
+      "macOS_main.cpp"
+    ],
+    "directory": "/Users/obwan02/Documents/repos/cpp_world_render",
+    "file": "/Users/obwan02/Documents/repos/cpp_world_render/macOS_main.cpp",
+    "output": "/Users/obwan02/Documents/repos/cpp_world_render/bin/game"
+  }
+]
