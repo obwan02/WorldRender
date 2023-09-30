@@ -7,21 +7,22 @@ microscopic details.
 
 # Some End Goals
 1. Have similar look/feel as modern graphics applications
-2. Should be backend agnostic. This means eventually having
-   Metal and Vulkan backends, and maybe eventually D3D.
-3. Should use no additional libraries that are not needed,
-   i.e. GLFW, Boost, C++ STL. (Some exceptions are stuff
-   like std::is_trivial, which require compiler builtins)
+2. Might eventually be backend agnostic. Starting with
+   Vulkan and moving on from there.
+3. Will *eventually* move away from 3rd party libraries,
+   once the needs arises. Currently, the effort vs. reward
+   is unclear if using i.e. GLFW, v.s. X11, WinAPI etc.
+   **NOTE**: Fast, performance critical code should be hand
+   written.
 
 
 # Design Decisions
 0. Use `struct`s for plain data, and `class`es for classes.
    This means all `struct`s should be trivial
-1. Simple decisions to get fast baseline performance. I.e.
-   don't make an abstract base class unless you need to
-2. Keep abstractions fairly simple, unless they need to be
-   complex.
-3. KISS
+1. Simple decisions to get fast baseline performance.
+2. KISS
+3. Simple is a lot better than complex - refactor code
+   if it gets too messy.
 4. The end goals are fairly lofty, which means sacrifices
    need to made in places - especially where certain
    features are not necessary. For example, hot-reloading
@@ -33,9 +34,7 @@ microscopic details.
    unecessary time.
 
 6. Minimise, and elminate wherever possible, pre-processor
-   directives that change code paths. Sometimes this is
-   unavoidable, such as in `game/graphics/api.h`, however,
-   it should be avoided. If it is implemented,
+   directives that change code paths. If it is implemented,
    there should be clear documentation in both the file
    header comment, and at the site of the directive.
 
@@ -48,7 +47,6 @@ microscopic details.
    Ideally, when this rule is followed, the number of code
    permutations that can occur should should be equal to the
    number of platforms/architectures supported
-
 
 # Some Guidelines
 
