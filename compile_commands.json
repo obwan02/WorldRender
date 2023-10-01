@@ -1,26 +1,32 @@
 [
   {
     "arguments": [
+      "/usr/bin/clang",
+      "-c",
+      "-Ivendor/glad/include",
+      "-o",
+      "bin/vulkan.o",
+      "vendor/glad/src/vulkan.c"
+    ],
+    "directory": "/home/obwan02/repos/WorldRender",
+    "file": "/home/obwan02/repos/WorldRender/vendor/glad/src/vulkan.c",
+    "output": "/home/obwan02/repos/WorldRender/bin/vulkan.o"
+  },
+  {
+    "arguments": [
       "/usr/bin/clang++",
       "-c",
-      "-I/opt/homebrew/Cellar/glfw/3.3.8/include",
-      "-framework",
-      "Cocoa",
-      "-framework",
-      "IOKit",
-      "-framework",
-      "CoreFoundation",
       "-Wall",
       "-std=c++17",
-      "-Ivendor/metal-cpp",
-      "-Ivendor/metal-cpp-extensions",
-      "-DWRLD_METAL",
+      "-Ivendor/glad/include",
+      "-DWRLD_VULKAN",
+      "-gdwarf",
       "-o",
-      "bin/game",
-      "macOS_main.cpp"
+      "bin/main.o",
+      "generic_vulkan.cpp"
     ],
-    "directory": "/Users/obwan02/Documents/repos/cpp_world_render",
-    "file": "/Users/obwan02/Documents/repos/cpp_world_render/macOS_main.cpp",
-    "output": "/Users/obwan02/Documents/repos/cpp_world_render/bin/game"
+    "directory": "/home/obwan02/repos/WorldRender",
+    "file": "/home/obwan02/repos/WorldRender/generic_vulkan.cpp",
+    "output": "/home/obwan02/repos/WorldRender/bin/main.o"
   }
 ]

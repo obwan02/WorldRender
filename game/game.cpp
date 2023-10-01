@@ -9,7 +9,6 @@
  */
 #include "core.h"
 #include "graphics/api.h"
-#include "graphics/metal_api.h"
 #include "util/assert.h"
 
 namespace wrld {

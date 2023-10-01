@@ -19,9 +19,11 @@
 // are used to define cross-platform functionality.
 //
 // This section should be kept short so that clarity
-// is retained. To add an extra
+// is retained 
 #ifdef WRLD_METAL
 #include "metal_api.h"
+#elif WRLD_VULKAN
+#include "vulkan_api.h"
 #else
 #error Render API is not specified, please include (or make) \
 a platform specific header (i.e. "macOS_api.h"), and include it \
