@@ -8,24 +8,22 @@
  */
 #pragma once
 
-#include <cwctype>
 #include <stdint.h>
-#include <memory>
+#include <stdio.h>
 
 #define STRINGIFY(x) #x
 #define STRINGIFY_EXPR(x) STRINGIFY(x)
 
-#define NO_ERROR (nullptr)
+#define COUNT_OF(x) (sizeof(x) / sizeof((x)[0]))
 
-class ErrorBase {
-public:
-	virtual ~ErrorBase() {};
-	virtual void print() = 0;
-};
+typedef int Result;
 
-typedef std::unique_ptr<ErrorBase> Error;
+#define RESULT_SUCCESS 0
+#define RESULT_GENERIC_ERR 1
 
-template<typename T>
-inline Error AllocError(T&& error) {
-	return std::make_unique<T>(error);
-}
+#define log_err(x) fprintf(stderr, x "\r\n")
+#define log_errf(x, ...) fprintf(stderr, x "\r\n", __VA_ARGS__)
+
+// TODO: Possibly arrange for errors to be allocated on an arena rather than
+// modified through parameters. In this manner, we can make an arena with a maximum
+// allocation size, to avoid accidentally allocating too much memory.

@@ -7,11 +7,11 @@
  */
 #pragma once
 #include "../core.h"
-#include "log.h"
+#include <stdio.h>
 
 #define ASSERT(expr)                                                                                                                               \
   if (!(expr)) {                                                                                                                                   \
-    ::wrld::log::logln(::wrld::String::from_cstr("Assert failed: '" #expr "' line " STRINGIFY_EXPR(__LINE__) ", file " STRINGIFY_EXPR(__FILE__))); \
+    puts("Assert failed: '" #expr "' line " STRINGIFY_EXPR(__LINE__) ", file " STRINGIFY_EXPR(__FILE__)); \
     __break();                                                                                                                                     \
   }
 

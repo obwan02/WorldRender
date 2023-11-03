@@ -4,6 +4,7 @@
       "/usr/bin/clang",
       "-c",
       "-Ivendor/glad/include",
+      "-g",
       "-o",
       "bin/vulkan.o",
       "vendor/glad/src/vulkan.c"
@@ -14,19 +15,17 @@
   },
   {
     "arguments": [
-      "/usr/bin/clang++",
+      "/usr/bin/clang",
       "-c",
-      "-Wall",
-      "-std=c++17",
       "-Ivendor/glad/include",
+      "-g",
       "-DWRLD_VULKAN",
-      "-gdwarf",
       "-o",
       "bin/main.o",
-      "generic_vulkan.cpp"
+      "generic_vulkan_main.c"
     ],
     "directory": "/home/obwan02/repos/WorldRender",
-    "file": "/home/obwan02/repos/WorldRender/generic_vulkan.cpp",
+    "file": "/home/obwan02/repos/WorldRender/generic_vulkan_main.c",
     "output": "/home/obwan02/repos/WorldRender/bin/main.o"
   }
 ]

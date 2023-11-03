@@ -7,4 +7,7 @@
  */
 #include "assert.h"
 
-void __break() { *((volatile int *)0) = 0; }
+// Mmmmm yummy
+void __break() { 
+	*((volatile int *)0) = 0; 
+}

@@ -11,11 +11,14 @@
 #include "graphics/api.h"
 #include "util/assert.h"
 
-namespace wrld {
+typedef struct App {
+	GBuffer *buffer;
+	GShader *shader;
+	GRenderDevice *renderDevice;
+} App;
 
-class Application {
-public:
-  Application(g::Device *device) : m_RenderDevice(device), buffer(g::Buffer::make_uninit()), shader(g::Shader::make_uninit()) {
+void InitApp(App *app, GDevice* device) {
+		
 
     static float bufferContents[] = {
         -0.5f,
@@ -30,11 +33,11 @@ public:
     };
 
     device->create_buffer(
-        g::BufferDescription{
+        GBufferDescription{
             .data = bufferContents,
             .size = sizeof(bufferContents),
         },
-        &this->buffer);
+        &app->buffer);
 
     // TODO: Make device dependent
     const char *data = "\
@@ -56,21 +59,14 @@ fragment float4 fragmentShader(float4 vertexOutPositions [[stage_in]]) {\
     return float4(182.0f/255.0f, 240.0f/255.0f, 228.0f/255.0f, 1.0f);\
 }";
 
-    int res = device->create_shader_from_string(data, &this->shader);
+    int res = device->create_shader_from_string(data, &app->shader);
     ASSERT(res == 0);
   }
 
-  void update() {
-  }
+void app_update(App *app) {
+}
 
-  void render(g::PresentParams presentParams) {
-    m_RenderDevice->present(presentParams);
-  }
+void app_render(App *app, GPresentParams presentParams) {
+	app->renderDevice->present(presentParams);
+}
 
-private:
-  g::Device *m_RenderDevice;
-  g::Buffer buffer;
-  g::Shader shader;
-};
-
-} // namespace wrld
