@@ -1,14 +1,8 @@
 #include <X11/X.h>
 #include <stdio.h>
 
-#include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
-#define GLFW_EXPOSE_NATIVE_X11
-#include <GLFW/glfw3native.h>
-
-#define VK_USE_PLATFORM_X11_KHR
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_xlib.h>
+#include <GLFW/glfw3.h>
 
 #include "game/core.h"
 #include "game/graphics/vulkan_api.h"
@@ -20,7 +14,7 @@
 static const char* AppName = "World-Scale Renderer";
 
 typedef struct CreateSurfaceData {
-	Window xlibWin;
+	GLFWwindow *window;
 } CreateSurfaceData;
 
 //  X11/Win32/Coca    Vulkan Instance
@@ -31,20 +25,15 @@ typedef struct CreateSurfaceData {
 //   V                  /
 //  _GVkInit        <--/
 static Result createSurface(VkInstance instance, VkSurfaceKHR *out, void *data) {
-	CreateSurfaceData *userData = data;
+	CreateSurfaceData *info = data;
+	
+	VkResult err = glfwCreateWindowSurface(instance, info->window, NULL, out);
+	if(err != VK_SUCCESS) {
+		log_err("Failed to create vulkan surfance from GLFW window");
+		return RESULT_GENERIC_ERR;
+	}
 
-	Display *disp = glfwGetX11Display();
-	VkXlibSurfaceCreateInfoKHR createInfo = {
-		.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-		.window = userData->xlibWin,
-		.dpy = disp,
-	};
-
-	// PICKUP: Need access to vulkan instance to create surface.
-	// Kinda hard to move this code to the graphics API as it's platform
-	// specific.
-	VkResult res = vkCreateXlibSurfaceKHR(instance, &createInfo, NULL, out);
-	return (res == VK_SUCCESS) ? RESULT_SUCCESS : RESULT_GENERIC_ERR;
+	return RESULT_SUCCESS;
 }
 
 int main(int argc, const char *argv[]) {
@@ -53,6 +42,10 @@ int main(int argc, const char *argv[]) {
     puts("Failed to initialise GLFW. Exiting ...");
     return -1;
   }
+
+	// Hint that we are using vulkan, not opengl, so don't 
+	// create any opengl context
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
   GLFWwindow *window = glfwCreateWindow(680, 420, AppName, NULL, NULL);
   glfwMakeContextCurrent(window);
@@ -72,7 +65,7 @@ int main(int argc, const char *argv[]) {
 
 	GDevice device;
 	CreateSurfaceData surfaceData = {
-		.xlibWin = glfwGetX11Window(window)
+		.window = window
 	};	
 
 	res = _GVkInitDevice(&device, createSurface, &surfaceData);
