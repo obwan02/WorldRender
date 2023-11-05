@@ -17,8 +17,9 @@ typedef struct MutStr {
 
 /// \see _StrEq
 #define StrEq(a, b) _StrCat((Str){ (a).str, (a).len }, (Str){ (b).str, (b).len });
-/// \see _StrCpy
+/// \see _StrJoin
 #define StrJoin(a, b, out) _StrCat((Str){ (a).str, (a).len }, (Str){ (b).str, (b).len }, (out))
+/// \see _StrCpy
 #define StrCpy(a, out) _StrCat((Str){ (a).str, (a).len }, (out))
 
 /** 
@@ -39,6 +40,34 @@ bool _StrEq(Str a, Str b);
  * \param[out] out	the \ref MutString to store the result into	
  */
 bool _StrJoin(Str a, Str b, MutStr out);
+
+/**
+ * Copies a string into another.
+ *
+ * \param[in] a			the string to be copied
+ * \param[out] out	the string to be copied into
+ * \return					`true` if the string is successfully copied. Will return `false`
+ *									if there is not enough capacity in `out` to copy the input string over.
+ */
 bool _StrCpy(Str a, MutStr out);
+
+/**
+ * \brief Ensures that a string is compatible with c-strings. 
+ *
+ * This is needed as \ref Str and \ref MutStr aren't guaranteed 
+ * to contain a null char at the end of their string. The string will
+ * remain a valid c-string until it is modified. Any modification operation
+ * will remove the guarantee that the string is a valid c-string.\
+ *
+ * \note This operation does not modify the length of the string. However, if does
+ * require that len < cap.
+ 
+ *
+ * \param[in, out] out	the string to be modified to ensure it has a null char at the end
+ * \return							`true` if there is enough capacity in the string to add a null char, and 
+ *											a null char was added. `false` if the null char wasn't added because there wasn't
+ *											enough capacity.
+ *
+ */
 bool EnsureCStr(MutStr out);
 

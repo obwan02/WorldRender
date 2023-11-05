@@ -32,7 +32,7 @@ bool _StrCpy(Str a, MutStr out) {
 
 bool EnsureCStr(MutStr out) {
 	if(out.len < out.cap) {
-		out.str[out.len++] = '\0';
+		out.str[out.len] = '\0';
 		return true;
 	}
 
