@@ -3,20 +3,24 @@
     "arguments": [
       "/usr/bin/clang",
       "-c",
+      "-I/opt/homebrew/Cellar/glfw/3.3.8/include",
+      "-I/usr/local/include",
       "-Ivendor/glad/include",
       "-g",
       "-o",
       "bin/vulkan.o",
       "vendor/glad/src/vulkan.c"
     ],
-    "directory": "/home/obwan02/repos/WorldRender",
-    "file": "/home/obwan02/repos/WorldRender/vendor/glad/src/vulkan.c",
-    "output": "/home/obwan02/repos/WorldRender/bin/vulkan.o"
+    "directory": "/Users/obwan02/Documents/repos/cpp_world_render",
+    "file": "/Users/obwan02/Documents/repos/cpp_world_render/vendor/glad/src/vulkan.c",
+    "output": "/Users/obwan02/Documents/repos/cpp_world_render/bin/vulkan.o"
   },
   {
     "arguments": [
       "/usr/bin/clang",
       "-c",
+      "-I/opt/homebrew/Cellar/glfw/3.3.8/include",
+      "-I/usr/local/include",
       "-Ivendor/glad/include",
       "-g",
       "-DWRLD_VULKAN",
@@ -24,8 +28,8 @@
       "bin/main.o",
       "generic_vulkan_main.c"
     ],
-    "directory": "/home/obwan02/repos/WorldRender",
-    "file": "/home/obwan02/repos/WorldRender/generic_vulkan_main.c",
-    "output": "/home/obwan02/repos/WorldRender/bin/main.o"
+    "directory": "/Users/obwan02/Documents/repos/cpp_world_render",
+    "file": "/Users/obwan02/Documents/repos/cpp_world_render/generic_vulkan_main.c",
+    "output": "/Users/obwan02/Documents/repos/cpp_world_render/bin/main.o"
   }
 ]

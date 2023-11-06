@@ -24,4 +24,4 @@ bin/main.o: generic_vulkan_main.c
 	clang -c -o $@ $^ $(C_FLAGS) -DWRLD_VULKAN
 
 clean:
-	rm bin/*
+	rm -rf bin/*

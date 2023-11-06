@@ -10,6 +10,7 @@
 #include "../core.h"
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
+#include <stdbool.h>
 
 typedef struct GDevice {
 	VkDevice vkDevice;
@@ -43,7 +44,7 @@ typedef Result(* _GVkCreateSurfaceFn)(VkInstance instance, VkSurfaceKHR *out, vo
 //							 normal extensions required by the rendering system. This shuold usually contain a list of native
 //							 extensions that are required for specific platform i.e. for win32. Can be provided by GLFW.
 // - 
-Result _GVkInit(const char *appName, int verMajor, int verMinor, int verPatch, uint32_t extCount, const char **extensions);
+Result _GVkInit(const char *appName, int verMajor, int verMinor, int verPatch, uint32_t extCount, const char **extensions, bool portableSubset);
 
 // Initialise a graphics device. The best one will be chosen. It is not intended for multiple
 // graphics devices to be created.

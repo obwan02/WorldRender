@@ -1,4 +1,3 @@
-#include <X11/X.h>
 #include <stdio.h>
 
 #include <vulkan/vulkan_core.h>
@@ -56,7 +55,13 @@ int main(int argc, const char *argv[]) {
 
 
 	// Vulkan specific graphics setup
-	Result res = _GVkInit(AppName, 0, 0, 1, extCount, extensions); 
+	// Ifdef is necessary evil for now, as long as this "generic" 
+	// main file exists.
+#ifdef __APPLE__
+	Result res = _GVkInit(AppName, 0, 0, 1, extCount, extensions, true);
+#else
+	Result res = _GVkInit(AppName, 0, 0, 1, extCount, extensions, false);
+#endif
 	if(res != RESULT_SUCCESS) {
 		log_err("Exiting, due to error during Vulkan initialisation. Exiting...");
 		exit(-1);

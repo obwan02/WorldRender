@@ -21,7 +21,7 @@ typedef struct PhysicalDeviceProps {
 	bool meetsMinsRequirements;
 } PhysicalDeviceProps;
 
-static void populateVulkanExtensions(uint32_t extraExtsCount, const char **extraExtensions, VkInstanceCreateInfo *out);
+static void populateVulkanExtensions(uint32_t extraExtsCount, const char **extraExtensions, bool portableSubset, VkInstanceCreateInfo *out);
 static Result populateVulkanLayers(VkInstanceCreateInfo *out);
 static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice device);
 
@@ -46,7 +46,7 @@ _vkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT msgSeverity,
   return 0;
 }
 
-Result _GVkInit(const char *appName, int verMajor, int verMinor, int verPatch, uint32_t extraExtsCount, const char **extraExts) {
+Result _GVkInit(const char *appName, int verMajor, int verMinor, int verPatch, uint32_t extraExtsCount, const char **extraExts, bool portableSubset) {
 							  
   ASSERT(appName != NULL);
   if (extraExtsCount)
@@ -80,9 +80,13 @@ Result _GVkInit(const char *appName, int verMajor, int verMinor, int verPatch, u
           &debugCallbackCreateInfo // Have debugging before instance is created
   };
 
-	populateVulkanExtensions(extraExtsCount, extraExts, &createInfo);
+	populateVulkanExtensions(extraExtsCount, extraExts, portableSubset, &createInfo);
 	populateVulkanLayers(&createInfo);
 
+	if(portableSubset) {
+		createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+	}
+	
   // Create the instance
   VkResult result = vkCreateInstance(&createInfo, NULL, &_vkInstance);
   if (result != VK_SUCCESS) {
@@ -219,13 +223,21 @@ static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice device) {
 	return result;
 }
 
-static void populateVulkanExtensions(uint32_t extraExtsCount, const char **extraExtensions, VkInstanceCreateInfo *out) {
+static void populateVulkanExtensions(uint32_t extraExtsCount, const char **extraExtensions, bool portableSubset, VkInstanceCreateInfo *out) {
+	// TODO: Convert to memory arena
   static const char *extsArr[128];
   ASSERT(COUNT_OF(wantedExts) + extraExtsCount <= COUNT_OF(extsArr));
   memcpy(extsArr, wantedExts, sizeof(wantedExts));
   memcpy(extsArr + COUNT_OF(wantedExts), extraExtensions, extraExtsCount * sizeof(const char *));
 
-  out->enabledExtensionCount = extraExtsCount + COUNT_OF(wantedExts);
+	if(portableSubset) {
+		ASSERT(COUNT_OF(wantedExts) + extraExtsCount + 1 <= COUNT_OF(extsArr));
+		extsArr[COUNT_OF(wantedExts) + extraExtsCount] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+		out->enabledExtensionCount = extraExtsCount + COUNT_OF(wantedExts) + 1;
+	} else {
+		out->enabledExtensionCount = extraExtsCount + COUNT_OF(wantedExts);
+	}
+
   out->ppEnabledExtensionNames = extsArr;
 }
 
