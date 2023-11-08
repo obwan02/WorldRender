@@ -6,15 +6,15 @@
 #include "game/core.h"
 #include "game/graphics/vulkan_api.h"
 
-// #include "game/game.cpp"
 #include "game/graphics/vulkan_api.c"
 #include "game/util/clang_assert.c"
-
-static const char* AppName = "World-Scale Renderer";
+#include "game/core.c"
 
 typedef struct CreateSurfaceData {
 	GLFWwindow *window;
 } CreateSurfaceData;
+
+static Str appName = S("World-Scale Renderer");
 
 //  X11/Win32/Coca    Vulkan Instance
 //   |                  v----/
@@ -23,16 +23,16 @@ typedef struct CreateSurfaceData {
 //   |                  |
 //   V                  /
 //  _GVkInit        <--/
-static Result createSurface(VkInstance instance, VkSurfaceKHR *out, void *data) {
+static b32 createSurface(VkInstance instance, void *data, VkSurfaceKHR *out) {
 	CreateSurfaceData *info = data;
 	
 	VkResult err = glfwCreateWindowSurface(instance, info->window, NULL, out);
 	if(err != VK_SUCCESS) {
 		log_err("Failed to create vulkan surfance from GLFW window");
-		return RESULT_GENERIC_ERR;
+		return false;
 	}
 
-	return RESULT_SUCCESS;
+	return true;
 }
 
 int main(int argc, const char *argv[]) {
@@ -46,7 +46,7 @@ int main(int argc, const char *argv[]) {
 	// create any opengl context
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-  GLFWwindow *window = glfwCreateWindow(680, 420, AppName, NULL, NULL);
+  GLFWwindow *window = glfwCreateWindow(680, 420, (const char *) appName.str, NULL, NULL);
   glfwMakeContextCurrent(window);
 
 	// Get required vulkan extensions from glfw
@@ -60,11 +60,11 @@ int main(int argc, const char *argv[]) {
 #ifdef __APPLE__
 	Result res = _GVkInit(AppName, 0, 0, 1, extCount, extensions, true);
 #else
-	Result res = _GVkInit(AppName, 0, 0, 1, extCount, extensions, false);
+	b32 res = _GVkInit(appName, 0, 0, 1, extCount, extensions, false);
 #endif
-	if(res != RESULT_SUCCESS) {
-		log_err("Exiting, due to error during Vulkan initialisation. Exiting...");
-		exit(-1);
+	if(!res) {
+		log_err("Exiting, due to error during Vulkan initialisation...");
+		return -1;
 	}
 
 
@@ -73,10 +73,10 @@ int main(int argc, const char *argv[]) {
 		.window = window
 	};	
 
-	res = _GVkInitDevice(&device, createSurface, &surfaceData);
-	if(res != RESULT_SUCCESS) {
+	GVkDeviceOut dev = _GVkInitDevice(createSurface, &surfaceData);
+	if(dev.err) {
 		log_err("Failed to initialise and create logical device. Exiting...");
-		exit(-1);
+		return -1;
 	}
 
   while (!glfwWindowShouldClose(window)) {

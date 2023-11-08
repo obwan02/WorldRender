@@ -10,7 +10,6 @@
 #include "../core.h"
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-#include <stdbool.h>
 
 typedef struct GDevice {
 	VkDevice vkDevice;
@@ -29,7 +28,12 @@ struct GBufferDescription {
 	size_t size;
 };
 
-typedef Result(* _GVkCreateSurfaceFn)(VkInstance instance, VkSurfaceKHR *out, void* userData);
+typedef struct GVkDeviceOut {
+	GDevice dev;
+	b32 err;
+} GVkDeviceOut;
+
+typedef b32(* _GVkCreateSurfaceFn)(VkInstance instance, void* userData, VkSurfaceKHR *out);
 
 // Vulkan-only function to create vulkan instance. Should only be called from
 // vulkan specific code - should not be called in generic rendering code.
@@ -39,18 +43,18 @@ typedef Result(* _GVkCreateSurfaceFn)(VkInstance instance, VkSurfaceKHR *out, vo
 // - verMajor: The major version number of the application
 // - verMinor: The minor version number of the application
 // - verPatch: The patch version of the application
-// - extCount: The number of extensions pointed to by the `extensions` ptr. Usually provided by GLFW
+// - extCount: The number of extensions poi32ed to by the `extensions` ptr. Usually provided by GLFW
 // - extensions: A ptr to the names of extensions to load. These extensions are loaded in addition to the
 //							 normal extensions required by the rendering system. This shuold usually contain a list of native
 //							 extensions that are required for specific platform i.e. for win32. Can be provided by GLFW.
 // - 
-Result _GVkInit(const char *appName, int verMajor, int verMinor, int verPatch, uint32_t extCount, const char **extensions, bool portableSubset);
+b32 _GVkInit(Str appName, i32 verMajor, i32 verMinor, i32 verPatch, u32 extCount, const char **extensions, b32 portableSubset);
 
-// Initialise a graphics device. The best one will be chosen. It is not intended for multiple
+// Initialise a graphics device. The best one will be chosen. It is not i32ended for multiple
 // graphics devices to be created.
 // TODO: Making this vulkan specific is a pain - however, kinda necessary. Evaluate
 // this function signature in the future.
-Result _GVkInitDevice(GDevice *out, _GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData);
+GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData);
 
 // Vulkan-only cleanup function to cleanup any left-over Vulkan resources. Honestly, probably doesn't need
 // to be called as OS will clean up our resources for us (a lot faster than we can probs).

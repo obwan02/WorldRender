@@ -8,4 +8,4 @@
 #include "assert.h"
 
 // Assume we are building with clang
-void __break() { __builtin_trap(); }
+void __break() { __builtin_unreachable(); }

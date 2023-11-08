@@ -1,5 +1,6 @@
 C_FLAGS = $$(pkg-config --cflags glfw3 vulkan) -Ivendor/glad/include
 LINK_FLAGS = $$(pkg-config --libs glfw3 vulkan)
+ALL_FILES = $(shell find . -name '*.[ch]')
 
 .PHONY: debug release clean
 
@@ -20,8 +21,8 @@ bin/game: bin/vulkan.o bin/main.o
 bin/vulkan.o: vendor/glad/src/vulkan.c
 	clang -c -o $@ $^ $(C_FLAGS)
 
-bin/main.o: generic_vulkan_main.c
-	clang -c -o $@ $^ $(C_FLAGS) -DWRLD_VULKAN
+bin/main.o: $(ALL_FILES)
+	clang -c -o $@ generic_vulkan_main.c $(C_FLAGS) -DWRLD_VULKAN
 
 clean:
 	rm -rf bin/*
