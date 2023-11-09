@@ -239,15 +239,15 @@ static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice device, VkSu
 
 	PhysicalDeviceProps result = {
 		.hasRequiredExtensions = false,
-		.meetsMinsRequirements = false,
+		.meetsMinsRequirements = true,
 		.graphicsFamilyIndex = NULL_QUEUE_FAM_INDEX,
 		.presentIndex = NULL_QUEUE_FAM_INDEX,
 		.score = -1
 	};
 	 
 
-	result.meetsMinsRequirements = deviceProps.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-														 		 deviceFeatures.geometryShader;
+	// TODO: Re-enable for non macOS. M2 doesn't seem to support geometryShaders???
+	// result.meetsMinsRequirements = deviceProps.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader;
 
 	// *** Check graphics family queues ***
 	uint32_t queueFamilyCount = 0;

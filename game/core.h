@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <uchar.h>
+// #include <uchar.h>
 #include <stddef.h>
 
 #define STRINGIFY(x) #x
@@ -26,7 +26,7 @@
 #define false ((b32)0)
 
 typedef uint8_t   u8;
-typedef char16_t  c16;
+// typedef char16_t  c16;
 typedef int32_t   b32;
 typedef int32_t   i32;
 typedef uint32_t  u32;
