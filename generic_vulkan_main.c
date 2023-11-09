@@ -46,7 +46,7 @@ int main(int argc, const char *argv[]) {
 	scratch.end = scratch.beg + SCRATCH_ARENA_SIZE;
 
   if (!glfwInit()) {
-    puts("Failed to initialise GLFW. Exiting ...");
+    log_err("Failed to initialise GLFW. Exiting ...");
     return -1;
   }
 
@@ -64,9 +64,9 @@ int main(int argc, const char *argv[]) {
 	// Vulkan specific graphics setup
 	// Ifdef required because apple needs to use MoltenVK
 #ifdef __APPLE__
-	Result res = _GVkInit(AppName, 0, 0, 1, extCount, extensions, true);
+	Result res = _GVkInit(AppName, 0, 0, 1, extCount, extensions, true, scratch);
 #else
-	b32 res = _GVkInit(app_name, 0, 0, 1, ext_cnt, exts, false);
+	b32 res = _GVkInit(app_name, 0, 0, 1, ext_cnt, exts, false, scratch);
 #endif
 	if(!res) {
 		log_err("Exiting, due to error during Vulkan initialisation...");
@@ -74,16 +74,17 @@ int main(int argc, const char *argv[]) {
 	}
 
 
-	GDevice device;
 	CreateSurfaceData surface_data = {
 		.window = window
 	};	
 
-	GVkDeviceOut dev = _GVkInitDevice(createSurface, &surface_data);
+	GVkDeviceOut dev = _GVkInitDevice(createSurface, &surface_data, scratch);
 	if(dev.err) {
 		log_err("Failed to initialise and create logical device. Exiting...");
 		return -1;
 	}
+
+	GDevice device = dev.dev;
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();

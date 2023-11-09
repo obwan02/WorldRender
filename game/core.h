@@ -129,13 +129,13 @@ b32 EnsureCStr(MutStr out);
 #define ALLOC_SOFT_FAIL 2
 
 #define New(arena, T, n) (T *) Alloc((arena), sizeof(T), _Alignof(T), (n), 0)
-#define NewX(arena, T, n) (T *) Alloc((arena), sizeof(T), _Alignof(T), (n), 0)
+#define NewEx(arena, T, n, flags) (T *) Alloc((arena), sizeof(T), _Alignof(T), (n), flags)
 
 typedef struct Arena {
 	byte *beg, *end;
 } Arena;
 
-void *Alloc(Arena *a, usize align, isize size, isize slign, isize count, i32 flags);
+void *Alloc(Arena *a, isize size, isize align, isize count, i32 flags);
 
 void MemCopy(void *restrict dst, const void *restrict src, isize len);
 void *MemSet(void *ptr, u8 c, isize count); 

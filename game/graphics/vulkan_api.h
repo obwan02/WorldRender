@@ -48,13 +48,13 @@ typedef b32(* _GVkCreateSurfaceFn)(VkInstance instance, void* userData, VkSurfac
 //							 normal extensions required by the rendering system. This shuold usually contain a list of native
 //							 extensions that are required for specific platform i.e. for win32. Can be provided by GLFW.
 // - 
-b32 _GVkInit(Str appName, i32 verMajor, i32 verMinor, i32 verPatch, u32 extCount, const char **extensions, b32 portableSubset);
+b32 _GVkInit(Str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platform_exts_count, const char **platform_exts, b32 portable_subset, Arena scatch);
 
 // Initialise a graphics device. The best one will be chosen. It is not i32ended for multiple
 // graphics devices to be created.
 // TODO: Making this vulkan specific is a pain - however, kinda necessary. Evaluate
 // this function signature in the future.
-GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData);
+GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData, Arena scratch);
 
 // Vulkan-only cleanup function to cleanup any left-over Vulkan resources. Honestly, probably doesn't need
 // to be called as OS will clean up our resources for us (a lot faster than we can probs).

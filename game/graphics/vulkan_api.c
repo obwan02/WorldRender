@@ -24,43 +24,42 @@ typedef struct PopDeviceExtsOut {
 		
 } PopDeviceExtsOut;
 
-static b32 checkAndPopulateDeviceExtensions(VkPhysicalDevice device, VkDeviceCreateInfo *createInfo);
-static void checkAndPopulateInstanceExtensions(u32 extraExtsCount, const char **extraExtensions, b32 portableSubset, VkInstanceCreateInfo *out);
-static b32 checkAndPopulateLayers(VkInstanceCreateInfo *out);
-static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice device, VkSurfaceKHR surface);
+static b32 checkDeviceExtensions(VkPhysicalDevice, Arena);
+static b32 checkLayers(Arena);
+static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice, VkSurfaceKHR, Arena scratch);
 
 // TODO: Make work for multi-threaded code
-static VkInstance _vkInstance;
-static VkDebugUtilsMessengerEXT _vkDebugMessenger;
+static VkInstance _vk_instance;
+static VkDebugUtilsMessengerEXT _vk_dbg_messenger;
 
-static const char *wantedInstanceExts[] = {
+static const char *wanted_instance_exts[] = {
 		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 };
 
-static const char *wantedDeviceExts[] = {
+static const char *wanted_device_exts[] = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-static const char *wantedLayers[] = {
+static const char *wanted_layers[] = {
 		"VK_LAYER_KHRONOS_validation",
 };
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
-_vkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT msgSeverity,
-                 VkDebugUtilsMessageTypeFlagsEXT msgType,
-                 const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                 void *pUserData) {
-  log_errf("[VK VALIDATION LAYER] %s", pCallbackData->pMessage);
+_vkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT msg_sev,
+                 VkDebugUtilsMessageTypeFlagsEXT msg_type,
+                 const VkDebugUtilsMessengerCallbackDataEXT *pcallback_data,
+                 void *puser_data) {
+  log_errf("[VK VALIDATION LAYER] %s", pcallback_data->pMessage);
   return 0;
 }
 
-b32 _GVkInit(Str appName, i32 verMajor, i32 verMinor, i32 verPatch, u32 extraExtsCount, const char **extraExts, b32 portableSubset) {
+b32 _GVkInit(Str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platform_exts_count, const char **platform_exts, b32 portable_subset, Arena scratch) {
 							  
-  ASSERT(appName.str != NULL);
-  if (extraExtsCount)
-    ASSERT(extraExts != NULL);
+  ASSERT(app_name.str != NULL);
+  if (platform_exts_count)
+    ASSERT(platform_exts != NULL);
 
-  VkDebugUtilsMessengerCreateInfoEXT debugCallbackCreateInfo = {
+  VkDebugUtilsMessengerCreateInfoEXT dbg_callback_create_inf = {
       .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
       .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
                          VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
@@ -71,48 +70,58 @@ b32 _GVkInit(Str appName, i32 verMajor, i32 verMinor, i32 verPatch, u32 extraExt
       .pfnUserCallback = _vkDebugCallback,
       .pUserData = NULL};
 
-	static u8 appNameBuffer[128];
-	MutStr appNameStr = {
-		.str = appNameBuffer,
+	// Ensure the app name is a null terminated string.
+	MutStr app_name_str = {
+		.str = New(&scratch, u8, app_name.len + 1),
 		.len = 0,
-		.cap = 128
+		.cap = app_name.len + 1
 	};
-	EnsureCStr(appNameStr);
+	StrCpy(app_name, app_name_str);
+	EnsureCStr(app_name_str);
 
-  VkApplicationInfo appInfo = {
+  VkApplicationInfo appinf = {
       .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-      .pApplicationName = (const char *) appNameStr.str,
+      .pApplicationName = (const char *) app_name_str.str,
       .applicationVersion =
-          VK_MAKE_API_VERSION(0, verMajor, verMinor, verPatch),
+          VK_MAKE_API_VERSION(0, ver_maj, ver_minor, ver_patch),
       .pEngineName = "No Engine",
-      .engineVersion = VK_MAKE_API_VERSION(0, verMajor, verMinor, verPatch),
+      .engineVersion = VK_MAKE_API_VERSION(0, ver_maj, ver_minor, ver_patch),
       .apiVersion = VK_API_VERSION_1_0,
   };
 
 
-  VkInstanceCreateInfo createInfo = {
+  VkInstanceCreateInfo inst_createinfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-      .pApplicationInfo = &appInfo,
+      .pApplicationInfo = &appinf,
       .pNext =
-          &debugCallbackCreateInfo // Have debugging before instance is created
+          &dbg_callback_create_inf // Have debugging before instance is created
   };
 
-	checkAndPopulateInstanceExtensions(extraExtsCount, extraExts, portableSubset, &createInfo);
-	/* if(res != RESULT_SUCCESS) { */
-	/* 	log_err("Could not load all instance extensions, cannot initialise vulkan"); */
-	/* 	return res; */
-	/* } */
+	isize inst_ext_cnt = COUNT_OF(wanted_instance_exts) + platform_exts_count + (portable_subset ? 1 : 0);
+	const char **final_arr = New(&scratch, const char *, inst_ext_cnt);
+
+  MemCopy(final_arr, wanted_instance_exts, sizeof(wanted_instance_exts));
+	MemCopy(final_arr + COUNT_OF(wanted_instance_exts), platform_exts, platform_exts_count * sizeof(const char *));
+
+	if(portable_subset) {
+		final_arr[COUNT_OF(wanted_instance_exts) + platform_exts_count] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+	}
+
+	inst_createinfo.enabledExtensionCount = inst_ext_cnt;
+  inst_createinfo.ppEnabledExtensionNames = final_arr;
 
 	// Ignore any errors relating to not loading
 	// layers :)
-	b32 _ = checkAndPopulateLayers(&createInfo);
+	(void) checkLayers(scratch);
+	inst_createinfo.ppEnabledLayerNames = wanted_layers;
+	inst_createinfo.enabledLayerCount = COUNT_OF(wanted_layers);
 
-	if(portableSubset) {
-		createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+	if(portable_subset) {
+		inst_createinfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 	}
 	
   // Create the instance
-  VkResult result = vkCreateInstance(&createInfo, NULL, &_vkInstance);
+  VkResult result = vkCreateInstance(&inst_createinfo, NULL, &_vk_instance);
   if (result != VK_SUCCESS) {
     log_err("Failed to create vkInstance");
     return false;
@@ -120,11 +129,11 @@ b32 _GVkInit(Str appName, i32 verMajor, i32 verMinor, i32 verPatch, u32 extraExt
 
   PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT =
       (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-          _vkInstance, "vkCreatDebugUtilsMessengerEXT");
+          _vk_instance, "vkCreatDebugUtilsMessengerEXT");
   if (vkCreateDebugUtilsMessengerEXT) {
-    if (vkCreateDebugUtilsMessengerEXT(_vkInstance, &debugCallbackCreateInfo,
+    if (vkCreateDebugUtilsMessengerEXT(_vk_instance, &dbg_callback_create_inf,
                                        NULL,
-                                       &_vkDebugMessenger) != VK_SUCCESS) {
+                                       &_vk_dbg_messenger) != VK_SUCCESS) {
       log_err("Failed to register vulkan debug callback");
       return false;
     }
@@ -133,11 +142,11 @@ b32 _GVkInit(Str appName, i32 verMajor, i32 verMinor, i32 verPatch, u32 extraExt
   return true;
 }
 
-GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData)  {
+GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData, Arena scratch)  {
 
 	// Create the surface that the device will draw to
 	VkSurfaceKHR surface;
-	b32 res = createSurfaceFn(_vkInstance, createSurfaceFnUserData, &surface);
+	b32 res = createSurfaceFn(_vk_instance, createSurfaceFnUserData, &surface);
 	if(!res) {
 		log_err("Failed to create vulkan surface from user callback");
 	}
@@ -145,9 +154,9 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 	uint32_t count = 0;
 	static VkPhysicalDevice allDevices[128];
 	
-	vkEnumeratePhysicalDevices(_vkInstance, &count, NULL);
+	vkEnumeratePhysicalDevices(_vk_instance, &count, NULL);
 	ASSERT(count <= 128);
-	vkEnumeratePhysicalDevices(_vkInstance, &count, allDevices);
+	vkEnumeratePhysicalDevices(_vk_instance, &count, allDevices);
 
 	// Pick the best device that is suitable for the job
 	// TODO: Allow user to override decision made by us
@@ -158,7 +167,7 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 
 	for(int i = 0; i < count; i++) {
 
-		PhysicalDeviceProps props = calcPhysicalDeviceProps(allDevices[i], surface);
+		PhysicalDeviceProps props = calcPhysicalDeviceProps(allDevices[i], surface, scratch);
 
 		if(props.meetsMinsRequirements && props.score > maxSuitability) {
 			chosenDevice = allDevices[i];
@@ -191,14 +200,15 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 
 		// TODO: Remove dependency on global variable, so 
 		// it is more future / bullet proof
-		.enabledLayerCount = COUNT_OF(wantedLayers),
-		.ppEnabledLayerNames = wantedLayers
+		.enabledLayerCount = COUNT_OF(wanted_layers),
+		.ppEnabledLayerNames = wanted_layers
 	};
 
-	res = checkAndPopulateDeviceExtensions(chosenDevice, &createInfo);
 	// This shouldn't fail, as no devices should pass the minimum device requirements
 	// and fail this assertion
-	ASSERT(res);
+	ASSERT(checkDeviceExtensions(chosenDevice, scratch));
+	createInfo.ppEnabledExtensionNames = wanted_device_exts;
+	createInfo.enabledLayerCount = COUNT_OF(wanted_device_exts);
 
 	VkDevice logicalDevice;
 	if(vkCreateDevice(chosenDevice, &createInfo, NULL, &logicalDevice) != VK_SUCCESS) {
@@ -212,14 +222,15 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 	// PICKUP: Calling create surface callback, and creating VkSurfaceKHR 
 	// as well as VkSwapChainKHR :))
 
-	return (GVkDeviceOut) { {
-		.vkDevice = logicalDevice,
-		.vkGraphicsQueue = graphicsQueue,
-		.vkSurface = surface,
-	} };
+	return (GVkDeviceOut) { 
+		.dev = {
+		  .vkDevice = logicalDevice,
+		  .vkGraphicsQueue = graphicsQueue,
+		  .vkSurface = surface,
+	}, .err = false};
 }
 
-static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice device, VkSurfaceKHR surface) {
+static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice device, VkSurfaceKHR surface, Arena scratch) {
 	VkPhysicalDeviceProperties deviceProps;
 	VkPhysicalDeviceFeatures deviceFeatures;
 
@@ -270,7 +281,7 @@ static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice device, VkSu
 		result.meetsMinsRequirements = false;
 	}
 
-	if(checkAndPopulateDeviceExtensions(device, NULL)) {
+	if(checkDeviceExtensions(device, scratch)) {
 		result.hasRequiredExtensions = true;
 	} else {
 		result.meetsMinsRequirements = false;
@@ -281,80 +292,55 @@ static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice device, VkSu
 	return result;
 }
 
-static void checkAndPopulateInstanceExtensions(u32 extraExtsCount, const char **extraExtensions, b32 portableSubset, VkInstanceCreateInfo *out) {
-	// TODO: Convert to memory arena
-  static const char *extsArr[128];
-  ASSERT(COUNT_OF(wantedInstanceExts) + extraExtsCount <= COUNT_OF(extsArr));
-  Copy(extsArr, wantedInstanceExts, sizeof(wantedInstanceExts));
-	Copy(extsArr + COUNT_OF(wantedInstanceExts), extraExtensions, extraExtsCount * sizeof(const char *));
+static b32 checkDeviceExtensions(VkPhysicalDevice device, Arena scratch) {
 
-	if(portableSubset) {
-		ASSERT(COUNT_OF(wantedInstanceExts) + extraExtsCount + 1 <= COUNT_OF(extsArr));
-		extsArr[COUNT_OF(wantedInstanceExts) + extraExtsCount] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
-		out->enabledExtensionCount = extraExtsCount + COUNT_OF(wantedInstanceExts) + 1;
-	} else {
-		out->enabledExtensionCount = extraExtsCount + COUNT_OF(wantedInstanceExts);
-	}
+	u32 all_exts_cnt;
+	VkExtensionProperties *all_exts;
 
-  out->ppEnabledExtensionNames = extsArr;
+	vkEnumerateDeviceExtensionProperties(device, NULL, &all_exts_cnt, NULL);
+	all_exts = New(&scratch, VkExtensionProperties, all_exts_cnt);
+	vkEnumerateDeviceExtensionProperties(device, NULL, &all_exts_cnt, all_exts);
 
-	// TODO: Check for extension availability
-}
-
-static b32 checkAndPopulateDeviceExtensions(VkPhysicalDevice device, VkDeviceCreateInfo *createInfo) {
-
-	u32 allExtensionsCount;
-	static VkExtensionProperties allExtensionProps[256];
-
-	vkEnumerateDeviceExtensionProperties(device, NULL, &allExtensionsCount, NULL);
-	ASSERT(allExtensionsCount <= COUNT_OF(allExtensionProps));
-	vkEnumerateDeviceExtensionProperties(device, NULL, &allExtensionsCount, allExtensionProps);
-
-	b32 foundAllExts = true;
-	for(size_t i = 0; i < COUNT_OF(wantedDeviceExts); i++) {
+	b32 found_all = true;
+	for(size_t i = 0; i < COUNT_OF(wanted_device_exts); i++) {
 		b32 found = false;
-		for(size_t j = 0; j < allExtensionsCount; j++) {
+		for(size_t j = 0; j < all_exts_cnt; j++) {
 			// PICKUP: StrEq not working (I don't think)
-			Str compare = StrFromCStr(allExtensionProps[j].extensionName);
-			Str wanted = StrFromCStr(wantedDeviceExts[i]);
+			Str compare = StrFromCStr(all_exts[j].extensionName);
+			Str wanted = StrFromCStr(wanted_device_exts[i]);
 			if(StrEq(compare, wanted))
 				found = true;
 		}
 
-		foundAllExts = foundAllExts && found;
+		found_all = found_all && found;
 
 		// TODO: Return array of missing extensions
 		if(!found)
-			log_warnf("WARN: Found a vulkan device that doesn't support extension '%s'", wantedDeviceExts[i]);
+			log_warnf("WARN: Found a vulkan device that doesn't support extension '%s'", wanted_device_exts[i]);
 	}
 
-	if(createInfo) {
-		createInfo->ppEnabledExtensionNames = wantedDeviceExts;
-		createInfo->enabledExtensionCount = COUNT_OF(wantedDeviceExts);
-	}
-
-	return foundAllExts;
+	return found_all;
 }
 
-static b32 checkAndPopulateLayers(VkInstanceCreateInfo *out) {
-  u32 layerCount;
-  static VkLayerProperties availableLayers[32];
+static b32 checkLayers(Arena scratch) {
+  u32 layer_cnt;
+	VkLayerProperties *all_layers;
 
 	// Look at all the possible layers we can load,
 	// to see if we can load our desired layers
-  vkEnumerateInstanceLayerProperties(&layerCount, NULL);
-  ASSERT(layerCount <= 32);
-  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
+  vkEnumerateInstanceLayerProperties(&layer_cnt, NULL);
+	all_layers = New(&scratch, VkLayerProperties, layer_cnt);
+  vkEnumerateInstanceLayerProperties(&layer_cnt, all_layers);
 
-	b32 foundAll = true;
+	b32 found_all = true;
   // Search for the layers we want
   // O(n^2) Tasty!
-  for (size_t i = 0; i < COUNT_OF(wantedLayers); i++) {
+  for (size_t i = 0; i < COUNT_OF(wanted_layers); i++) {
     b32 found = false;
 
-    for (size_t j = 0; j < layerCount; j++) {
-			Str compare = StrFromCStr(availableLayers[j].layerName);
-			Str wanted = StrFromCStr(wantedLayers[i]);
+    for (size_t j = 0; j < layer_cnt; j++) {
+			Str compare = StrFromCStr(all_layers[j].layerName);
+			Str wanted = StrFromCStr(wanted_layers[i]);
 
       if (StrEq(compare, wanted)) {
         found = true;
@@ -363,14 +349,12 @@ static b32 checkAndPopulateLayers(VkInstanceCreateInfo *out) {
     }
 
     if (!found) {
-      log_warnf("Layer required, but doesn't exist: %s", wantedLayers[i]);
-			foundAll = false;
+      log_warnf("Layer required, but doesn't exist: %s", wanted_layers[i]);
+			found_all = false;
     }
   }
 
-  out->enabledLayerCount = COUNT_OF(wantedLayers);
-  out->ppEnabledLayerNames = wantedLayers;
-	return true;
+	return found_all;
 }
 
 // TODO: Get rid of device from here
@@ -384,9 +368,9 @@ void _GVkCleanup(GDevice *device) {
 
   PFN_vkDestroyDebugUtilsMessengerEXT func =
       (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-          _vkInstance, "vkDestroyDebugUtilsMessengerEXT");
+          _vk_instance, "vkDestroyDebugUtilsMessengerEXT");
   if (func != NULL) {
-    func(_vkInstance, _vkDebugMessenger, NULL);
+    func(_vk_instance, _vk_dbg_messenger, NULL);
   }
-  vkDestroyInstance(_vkInstance, NULL);
+  vkDestroyInstance(_vk_instance, NULL);
 }
