@@ -41,12 +41,12 @@ typedef size_t    usize;
 #define S(x) (Str) { .str = (u8 *)(x), .len = sizeof(x) - 1 }
 typedef struct Str {
 	const u8 *str;
-	usize len;
+	isize len;
 } Str;
 
 typedef struct MutStr {
 	u8 *str;
-	usize len, cap;
+	isize len, cap;
 } MutStr;
 
 /// \see _StrEq
@@ -122,4 +122,28 @@ b32 _StrCpy(Str a, MutStr out);
  */
 b32 EnsureCStr(MutStr out);
 
-void Copy(void *restrict dst, const void *restrict src, usize len);
+// Arena design inpsired (copied from :))  
+// https://nullprogram.com/blog/2023/09/27/.
+
+#define ALLOC_NO_ZERO 1
+#define ALLOC_SOFT_FAIL 2
+
+#define New(arena, T, n) (T *) Alloc((arena), sizeof(T), _Alignof(T), (n), 0)
+#define NewX(arena, T, n) (T *) Alloc((arena), sizeof(T), _Alignof(T), (n), 0)
+
+typedef struct Arena {
+	byte *beg, *end;
+} Arena;
+
+void *Alloc(Arena *a, usize align, isize size, isize slign, isize count, i32 flags);
+
+void MemCopy(void *restrict dst, const void *restrict src, isize len);
+void *MemSet(void *ptr, u8 c, isize count); 
+
+#define ASSERT(expr)                                                                                                                               \
+  if (!(expr)) {                                                                                                                                   \
+    puts("Assert failed: '" #expr "' line " STRINGIFY_EXPR(__LINE__) ", file " STRINGIFY_EXPR(__FILE__)); \
+    __break();                                                                                                                                     \
+  }
+
+void __break();

@@ -6,8 +6,6 @@
  *
  */
 #include "vulkan_api.h"
-#include "../util/assert.h"
-
 #include <vulkan/vulkan_core.h>
 
 #define NULL_QUEUE_FAM_INDEX UINT32_MAX
