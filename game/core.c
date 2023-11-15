@@ -91,7 +91,7 @@ void *MemSet(void *ptr, u8 val, isize count) {
 	return ptr;
 }
 
-void __break() {
+void __break(void) {
 
 	// Inspired by the scottt/debugbreak repo:
 	// https://github.com/scottt/debugbreak

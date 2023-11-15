@@ -13,7 +13,7 @@
 
 typedef struct GDevice {
 	VkDevice vkDevice;
-	VkQueue vkGraphicsQueue;
+	VkQueue vkGraphicsQueue, vkPresentQueue;
 
 	// TODO: Don't know if this should be here????
 	// I'll come back to this once I've become

@@ -1,4 +1,4 @@
-C_FLAGS = $$(pkg-config --cflags glfw3 vulkan) -Ivendor/glad/include
+C_FLAGS = $$(pkg-config --cflags glfw3 vulkan) -Ivendor/glad/include -Wall -Wpedantic
 LINK_FLAGS = $$(pkg-config --libs glfw3 vulkan)
 ALL_FILES = $(shell find . -name '*.[ch]')
 

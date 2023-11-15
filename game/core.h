@@ -18,9 +18,11 @@
 
 #define COUNT_OF(x) (sizeof(x) / sizeof((x)[0]))
 
-#define log_err(x) fprintf(stderr, x "\r\n")
-#define log_errf(x, ...) fprintf(stderr, x "\r\n", __VA_ARGS__)
-#define log_warnf(x, ...) fprintf(stderr, x "\r\n", __VA_ARGS__)
+#define log_dbg(x) fprintf(stdout, "[DBG] " x "\r\n")
+#define log_dbgf(x, ...) fprintf(stdout, "[DBG] " x "\r\n", __VA_ARGS__)
+#define log_err(x) fprintf(stderr, "[ERR] " x "\r\n")
+#define log_errf(x, ...) fprintf(stderr, "[ERR] " x "\r\n", __VA_ARGS__)
+#define log_warnf(x, ...) fprintf(stderr, "[WRN] " x "\r\n", __VA_ARGS__)
 
 #define true  ((b32)1)
 #define false ((b32)0)
@@ -146,4 +148,4 @@ void *MemSet(void *ptr, u8 c, isize count);
     __break();                                                                                                                                     \
   }
 
-void __break();
+void __break(void);

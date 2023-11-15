@@ -13,8 +13,8 @@
 typedef struct PhysicalDeviceProps {
 	i32 score;
 	
-	u32 graphicsFamilyIndex;
-	u32 presentIndex;
+	u32 graphics_qfam_idx;
+	u32 present_qfam_idx;
 
 	b32 meetsMinsRequirements;
 	b32 hasRequiredExtensions;
@@ -49,7 +49,21 @@ _vkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT msg_sev,
                  VkDebugUtilsMessageTypeFlagsEXT msg_type,
                  const VkDebugUtilsMessengerCallbackDataEXT *pcallback_data,
                  void *puser_data) {
-  log_errf("[VK VALIDATION LAYER] %s", pcallback_data->pMessage);
+    /* VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT = 0x00000001, */
+    /* VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT = 0x00000010, */
+    /* VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT = 0x00000100, */
+    /* VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT = 0x00001000, */
+    /* VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT = 0x7FFFFFFF */
+	if((msg_sev & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) || (msg_sev & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT))
+		log_errf("> [VK VALIDATION LAYER] %s", pcallback_data->pMessage);
+
+	else if(msg_sev & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+		log_warnf("> [VK VALIDATION LAYER] %s", pcallback_data->pMessage);
+	
+	else 
+		log_errf("> [VK VALIDATION LAYER] %s", pcallback_data->pMessage);
+	
+
   return 0;
 }
 
@@ -107,6 +121,11 @@ b32 _GVkInit(Str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platfo
 		final_arr[COUNT_OF(wanted_instance_exts) + platform_exts_count] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
 	}
 
+	log_dbg("Vulkan Instance Layers Requested: ");
+	for(isize i = 0; i < inst_ext_cnt; i++) {
+		log_dbgf("\t- %s", final_arr[i]);
+	}
+
 	inst_createinfo.enabledExtensionCount = inst_ext_cnt;
   inst_createinfo.ppEnabledExtensionNames = final_arr;
 
@@ -161,41 +180,61 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 	// Pick the best device that is suitable for the job
 	// TODO: Allow user to override decision made by us
 	
-	int maxSuitability = -100;
-	VkPhysicalDevice chosenDevice = VK_NULL_HANDLE;
-	PhysicalDeviceProps chosenDeviceProps;
+	int max_suit = -100;
+	VkPhysicalDevice chosen_dev = VK_NULL_HANDLE;
+	PhysicalDeviceProps chosen_dev_props;
 
 	for(int i = 0; i < count; i++) {
 
 		PhysicalDeviceProps props = calcPhysicalDeviceProps(allDevices[i], surface, scratch);
 
-		if(props.meetsMinsRequirements && props.score > maxSuitability) {
-			chosenDevice = allDevices[i];
-			chosenDeviceProps = props;
+		if(props.meetsMinsRequirements && props.score > max_suit) {
+			chosen_dev = allDevices[i];
+			chosen_dev_props = props;
 		}
 	}
 
-	if(chosenDevice == VK_NULL_HANDLE) {
+	if(chosen_dev == VK_NULL_HANDLE) {
 		// TODO: Maybe remove logging and replace with a return param indicating
 		// how many physical devices couldn't be found
 		log_err("Couldn't find any physical devices that meet minimum requirements");
 		return (GVkDeviceOut) { .err = true, };
 	}
 
-	float queuePriority = 1.0f;
-	VkDeviceQueueCreateInfo queueCreateInfo = {
-		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-		.queueFamilyIndex = chosenDeviceProps.graphicsFamilyIndex,
-		.queueCount = 1,
-		.pQueuePriorities = &queuePriority,
-	};
+	log_dbgf("Graphics Queue Family Index: %u", chosen_dev_props.graphics_qfam_idx);
+	log_dbgf("Present Queue Family Index: %u", chosen_dev_props.present_qfam_idx);
 
-	VkPhysicalDeviceFeatures deviceFeatures = {};
+	float q_priority = 1.0f;
+	u32 all_qfam_idxs[] = {chosen_dev_props.graphics_qfam_idx, chosen_dev_props.present_qfam_idx};
 
-	VkDeviceCreateInfo createInfo = {
+	// Not using whole array, have to keep track of # items
+	VkDeviceQueueCreateInfo q_create_infos[COUNT_OF(all_qfam_idxs)];
+	isize q_create_infos_cnt = 0;
+
+	for(isize i = 0; i < COUNT_OF(all_qfam_idxs); i++) {
+		b32 dup = false;
+		for(isize j = 0; j < q_create_infos_cnt; j++) {
+			if(all_qfam_idxs[i] == q_create_infos[j].queueFamilyIndex) dup = true;
+		}
+
+		if(dup) continue;
+
+		q_create_infos[q_create_infos_cnt++] = (VkDeviceQueueCreateInfo) {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.queueFamilyIndex = all_qfam_idxs[i],
+			.queueCount = 1,
+			.pQueuePriorities = &q_priority,
+		};
+	}
+
+	log_dbgf("Unique Queue Family Indices: %ld", q_create_infos_cnt);
+
+	VkPhysicalDeviceFeatures deviceFeatures = {0};
+
+	VkDeviceCreateInfo create_inf = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		.pQueueCreateInfos = &queueCreateInfo,
-		.queueCreateInfoCount = 1,
+		.pQueueCreateInfos = q_create_infos,
+		.queueCreateInfoCount = q_create_infos_cnt,
 		.pEnabledFeatures = &deviceFeatures,
 
 		// TODO: Remove dependency on global variable, so 
@@ -206,26 +245,28 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 
 	// This shouldn't fail, as no devices should pass the minimum device requirements
 	// and fail this assertion
-	ASSERT(checkDeviceExtensions(chosenDevice, scratch));
-	createInfo.ppEnabledExtensionNames = wanted_device_exts;
-	createInfo.enabledLayerCount = COUNT_OF(wanted_device_exts);
+	ASSERT(checkDeviceExtensions(chosen_dev, scratch));
+	create_inf.ppEnabledExtensionNames = wanted_device_exts;
+	create_inf.enabledLayerCount = COUNT_OF(wanted_device_exts);
 
-	VkDevice logicalDevice;
-	if(vkCreateDevice(chosenDevice, &createInfo, NULL, &logicalDevice) != VK_SUCCESS) {
+	VkDevice logical_dev;
+	if(vkCreateDevice(chosen_dev, &create_inf, NULL, &logical_dev) != VK_SUCCESS) {
 		log_err("Failed to create logical vulkan device");
 		return (GVkDeviceOut) { .err = true };
 	}
 
-	VkQueue graphicsQueue;
-	vkGetDeviceQueue(logicalDevice, chosenDeviceProps.graphicsFamilyIndex, 0, &graphicsQueue);
+	VkQueue graphics_q, present_q;
+	vkGetDeviceQueue(logical_dev, chosen_dev_props.graphics_qfam_idx, 0, &graphics_q);
+	vkGetDeviceQueue(logical_dev, chosen_dev_props.present_qfam_idx, 0, &present_q);
 
-	// PICKUP: Calling create surface callback, and creating VkSurfaceKHR 
-	// as well as VkSwapChainKHR :))
+	// PICKUP: Creating VkSwapChainKHR :))
+	// TODO: Change variable naming scheme to snake_case
 
 	return (GVkDeviceOut) { 
 		.dev = {
-		  .vkDevice = logicalDevice,
-		  .vkGraphicsQueue = graphicsQueue,
+		  .vkDevice = logical_dev,
+		  .vkGraphicsQueue = graphics_q,
+			.vkPresentQueue = present_q,
 		  .vkSurface = surface,
 	}, .err = false};
 }
@@ -240,8 +281,8 @@ static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice device, VkSu
 	PhysicalDeviceProps result = {
 		.hasRequiredExtensions = false,
 		.meetsMinsRequirements = true,
-		.graphicsFamilyIndex = NULL_QUEUE_FAM_INDEX,
-		.presentIndex = NULL_QUEUE_FAM_INDEX,
+		.graphics_qfam_idx = NULL_QUEUE_FAM_INDEX,
+		.present_qfam_idx = NULL_QUEUE_FAM_INDEX,
 		.score = -1
 	};
 	 
@@ -258,26 +299,26 @@ static PhysicalDeviceProps calcPhysicalDeviceProps(VkPhysicalDevice device, VkSu
 
 	for(size_t i = 0; i < queueFamilyCount; i++) {
 		if(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-			result.graphicsFamilyIndex = i;
+			result.graphics_qfam_idx = i;
 		}
 
 		VkBool32 queueFamilySupportsPresent = false;
 		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &queueFamilySupportsPresent);
 
 		if(queueFamilySupportsPresent) {
-			if(result.presentIndex == NULL_QUEUE_FAM_INDEX) 
-				result.presentIndex = i;
+			if(result.present_qfam_idx == NULL_QUEUE_FAM_INDEX) 
+				result.present_qfam_idx = i;
 
 			// Prioritise keeping the present and graphics queue the same
 			// TODO: Check if this is good or bad
-			else if(result.presentIndex == result.graphicsFamilyIndex)
+			else if(result.present_qfam_idx == result.graphics_qfam_idx)
 				continue;
 
-			result.presentIndex = i;
+			result.present_qfam_idx = i;
 		}
 	}
 
-	if(result.graphicsFamilyIndex == NULL_QUEUE_FAM_INDEX || result.presentIndex == NULL_QUEUE_FAM_INDEX) {
+	if(result.graphics_qfam_idx == NULL_QUEUE_FAM_INDEX || result.present_qfam_idx == NULL_QUEUE_FAM_INDEX) {
 		result.meetsMinsRequirements = false;
 	}
 
@@ -305,7 +346,6 @@ static b32 checkDeviceExtensions(VkPhysicalDevice device, Arena scratch) {
 	for(size_t i = 0; i < COUNT_OF(wanted_device_exts); i++) {
 		b32 found = false;
 		for(size_t j = 0; j < all_exts_cnt; j++) {
-			// PICKUP: StrEq not working (I don't think)
 			Str compare = StrFromCStr(all_exts[j].extensionName);
 			Str wanted = StrFromCStr(wanted_device_exts[i]);
 			if(StrEq(compare, wanted))
