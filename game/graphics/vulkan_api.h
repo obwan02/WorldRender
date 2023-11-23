@@ -12,13 +12,16 @@
 #include <vulkan/vulkan_core.h>
 
 typedef struct GDevice {
-	VkDevice vkDevice;
-	VkQueue vkGraphicsQueue, vkPresentQueue;
+	VkDevice vk_dev;
+	VkQueue vk_graphics_q, vk_present_q;
 
+	const b32 vsync_lock;
 	// TODO: Don't know if this should be here????
 	// I'll come back to this once I've become
 	// more familiar with Vulkan
-	VkSurfaceKHR vkSurface;
+	VkSurfaceKHR vk_surf;
+	// Same here
+	VkSwapchainKHR vk_swapchain;
 } GDevice;
 
 struct GPresentParams {};
@@ -54,7 +57,7 @@ b32 _GVkInit(Str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platfo
 // graphics devices to be created.
 // TODO: Making this vulkan specific is a pain - however, kinda necessary. Evaluate
 // this function signature in the future.
-GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData, Arena scratch);
+GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData, b32 vsync, Arena scratch);
 
 // Vulkan-only cleanup function to cleanup any left-over Vulkan resources. Honestly, probably doesn't need
 // to be called as OS will clean up our resources for us (a lot faster than we can probs).

@@ -16,7 +16,7 @@
 #define STRINGIFY(x) #x
 #define STRINGIFY_EXPR(x) STRINGIFY(x)
 
-#define COUNT_OF(x) (sizeof(x) / sizeof((x)[0]))
+#define COUNT_OF(x) ((isize)(sizeof(x) / sizeof((x)[0])))
 
 #define log_dbg(x) fprintf(stdout, "[DBG] " x "\r\n")
 #define log_dbgf(x, ...) fprintf(stdout, "[DBG] " x "\r\n", __VA_ARGS__)

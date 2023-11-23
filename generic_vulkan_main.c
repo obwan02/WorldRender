@@ -78,7 +78,7 @@ int main(int argc, const char *argv[]) {
 		.window = window
 	};	
 
-	GVkDeviceOut dev = _GVkInitDevice(createSurface, &surface_data, scratch);
+	GVkDeviceOut dev = _GVkInitDevice(createSurface, &surface_data, false, scratch);
 	if(dev.err) {
 		log_err("Failed to initialise and create logical device. Exiting...");
 		return -1;
