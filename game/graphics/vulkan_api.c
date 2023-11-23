@@ -168,6 +168,7 @@ b32 _GVkInit(Str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platfo
     }
   }
 
+	log_dbg("Vulkan Initialised!");
   return true;
 }
 
@@ -194,6 +195,7 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 	VkPhysicalDevice chosen_dev = VK_NULL_HANDLE;
 	PDeviceProps chosen_dev_props;
 
+	log_dbgf("Found %u physical devices", count);
 	for(int i = 0; i < count; i++) {
 
 		PDeviceProps props = queryPDeviceProps(allDevices[i], surface, vsync_lock, scratch);
