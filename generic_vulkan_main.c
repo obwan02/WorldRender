@@ -33,17 +33,17 @@ static b32 createSurface(VkInstance instance, void *data, VkSurfaceKHR *out) {
 int main(int argc, const char *argv[]) {
 
 	// TODO: Move away from using libc eventually
+	Arena scratch_arena = {
+		.beg = malloc(SCRATCH_ARENA_SIZE)
+	};
+	ASSERT(scratch_arena.beg);
+	scratch_arena.end = scratch_arena.beg + SCRATCH_ARENA_SIZE;
+
 	Arena perm_arena = {
-		.beg = malloc(PERM_ARENA_SIZE),
+		.beg = malloc(SCRATCH_ARENA_SIZE)
 	};
 	ASSERT(perm_arena.beg);
 	perm_arena.end = perm_arena.beg + PERM_ARENA_SIZE;
-
-	Arena scratch = {
-		.beg = malloc(SCRATCH_ARENA_SIZE)
-	};
-	ASSERT(scratch.beg);
-	scratch.end = scratch.beg + SCRATCH_ARENA_SIZE;
 
   if (!glfwInit()) {
     log_err("Failed to initialise GLFW. Exiting ...");
@@ -66,7 +66,7 @@ int main(int argc, const char *argv[]) {
 #ifdef __APPLE__
 	b32 res = _GVkInit(app_name, 0, 0, 1, ext_cnt, exts, true, scratch);
 #else
-	b32 res = _GVkInit(app_name, 0, 0, 1, ext_cnt, exts, false, scratch);
+	b32 res = _GVkInit(app_name, 0, 0, 1, ext_cnt, exts, false, scratch_arena);
 #endif
 	if(!res) {
 		log_err("Exiting, due to error during Vulkan initialisation...");
@@ -78,7 +78,7 @@ int main(int argc, const char *argv[]) {
 		.window = window
 	};	
 
-	GVkDeviceOut dev = _GVkInitDevice(createSurface, &surface_data, false, scratch);
+	GVkDeviceOut dev = _GVkInitDevice(createSurface, &surface_data, false, &perm_arena, scratch_arena);
 	if(dev.err) {
 		log_err("Failed to initialise and create logical device. Exiting...");
 		return -1;

@@ -65,7 +65,7 @@ _vkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT msg_sev,
     /* VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT = 0x00001000, */
     /* VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT = 0x7FFFFFFF */
 	if((msg_sev & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) || (msg_sev & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT))
-		log_errf(":: [VK VALIDATION LAYER] %s", pcallback_data->pMessage);
+		log_dbgf(":: [VK VALIDATION LAYER] %s", pcallback_data->pMessage);
 
 	else if(msg_sev & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
 		log_warnf(":: [VK VALIDATION LAYER] %s", pcallback_data->pMessage);
@@ -172,8 +172,7 @@ b32 _GVkInit(Str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platfo
   return true;
 }
 
-GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData, b32 vsync_lock, Arena scratch)  {
-
+GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData, b32 vsync_lock, Arena *perm, Arena scratch)  {
 	// Create the surface that the device will draw to
 	VkSurfaceKHR surface;
 	b32 res = createSurfaceFn(_vk_instance, createSurfaceFnUserData, &surface);
@@ -261,7 +260,7 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 	ASSERT(chosen_dev_props.swapchain_props.meets_min_reqs);
 
 	create_inf.ppEnabledExtensionNames = wanted_device_exts;
-	create_inf.enabledLayerCount = COUNT_OF(wanted_device_exts);
+	create_inf.enabledExtensionCount = COUNT_OF(wanted_device_exts);
 
 	VkDevice logical_dev;
 	if(vkCreateDevice(chosen_dev, &create_inf, NULL, &logical_dev) != VK_SUCCESS) {
@@ -280,6 +279,7 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 	u32 qfam_idxs[] = {chosen_dev_props.present_qfam_idx, chosen_dev_props.graphics_qfam_idx};
 
 	VkSwapchainCreateInfoKHR sc_create_inf = {
+			.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 			.minImageCount = sc_props->img_cnt,
 			.imageFormat = sc_props->fmt.format,
 			.imageColorSpace = sc_props->fmt.colorSpace,
@@ -294,14 +294,21 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 			.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
 			.presentMode = sc_props->mode,
 			.clipped = VK_TRUE,
-			.oldSwapchain = VK_NULL_HANDLE
+			.oldSwapchain = VK_NULL_HANDLE,
+			.surface = surface,
 	};
+
 
 	VkSwapchainKHR swapchain;
 	if(vkCreateSwapchainKHR(logical_dev, &sc_create_inf, NULL, &swapchain) != VK_SUCCESS) {
 		log_err("Failed to create vulkan swapchain");
 		return (GVkDeviceOut) { .err = true };
 	}
+
+	u32 sc_img_cnt = 0;
+	vkGetSwapchainImagesKHR(logical_dev, swapchain, &sc_img_cnt, NULL);
+	VkImage *sc_imgs = New(perm, VkImage, sc_img_cnt);
+	vkGetSwapchainImagesKHR(logical_dev, swapchain, &sc_img_cnt, sc_imgs);
 
 	return (GVkDeviceOut) { 
 		.dev = {
@@ -310,6 +317,10 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 			.vk_present_q = present_q,
 		  .vk_surf = surface,
 			.vk_swapchain = swapchain,
+			.vk_swapchain_imgs = sc_imgs,
+			.vk_swapchain_img_cnt = sc_img_cnt,
+			.vk_swapchain_fmt = sc_props->fmt.format,
+			.vk_swapchain_extent = sc_props->extent,
 	}, .err = false};
 }
 
@@ -422,10 +433,12 @@ static SwapchainProps querySwapchain(VkPhysicalDevice device, VkSurfaceKHR surfa
 	present_modes = New(&scratch, VkPresentModeKHR, mode_cnt);
 	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &mode_cnt, present_modes);
 
-	VkSurfaceFormatKHR sc_fmt;
+	ASSERT(fmt_cnt > 0);
+	VkSurfaceFormatKHR sc_fmt = fmts[0];
 
 	for(isize i = 0; i < fmt_cnt; i++)
-		if(fmts[i].format == VK_FORMAT_R8G8B8A8_SRGB &&
+		if((fmts[i].format == VK_FORMAT_B8G8R8A8_SRGB ||
+				fmts[i].format == VK_FORMAT_R8G8B8A8_SRGB) &&
 			 fmts[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
 				sc_fmt = fmts[i];
 
@@ -450,7 +463,8 @@ static SwapchainProps querySwapchain(VkPhysicalDevice device, VkSurfaceKHR surfa
 	}
 
 	// Prefer triple-buffering, otherwise take the min
-	u32 sc_img_cnt = (3 > caps.minImageCount) ? caps.minImageCount : 3;
+	u32 sc_img_cnt = 3 < caps.minImageCount ? caps.minImageCount : 3;
+	log_dbgf("Using %d images for the swapchain", sc_img_cnt);
 
 	// Just double-check we aren't over the maximum
 	// Don't think this is necessary
@@ -512,6 +526,7 @@ static b32 checkLayers(const char** layers, u32 layer_cnt, Arena scratch) {
 void _GVkCleanup(GDevice *device) {
 	if(device != NULL) {
 		vkDestroySwapchainKHR(device->vk_dev, device->vk_swapchain, NULL);
+		vkDestroySurfaceKHR(_vk_instance, device->vk_surf, NULL);
 		vkDestroyDevice(device->vk_dev, NULL);
 	}
 

@@ -19,23 +19,30 @@ typedef struct GDevice {
 	// TODO: Don't know if this should be here????
 	// I'll come back to this once I've become
 	// more familiar with Vulkan
+
+	// TODO: Consider moving the surface and
+	// swapchain + images to their own struct
+	// called like 'GDisplayTarget'
 	VkSurfaceKHR vk_surf;
 	// Same here
 	VkSwapchainKHR vk_swapchain;
+	VkImage *vk_swapchain_imgs;
+	u32 vk_swapchain_img_cnt;
+
+	VkFormat vk_swapchain_fmt;
+	VkExtent2D vk_swapchain_extent;
 } GDevice;
 
-struct GPresentParams {};
-struct GShader {};
-struct GBufferDescription {
-	void *data;
-	size_t size;
-};
+/* struct GPresentParams {}; */
+/* struct GShader {}; */
+/* struct GBufferDescription {}; */
 
 typedef struct GVkDeviceOut {
 	GDevice dev;
 	b32 err;
 } GVkDeviceOut;
 
+// TODO: Just replace with vulkan surface parameter to _GVkInit.
 typedef b32(* _GVkCreateSurfaceFn)(VkInstance instance, void* userData, VkSurfaceKHR *out);
 
 // Vulkan-only function to create vulkan instance. Should only be called from
@@ -51,13 +58,13 @@ typedef b32(* _GVkCreateSurfaceFn)(VkInstance instance, void* userData, VkSurfac
 //							 normal extensions required by the rendering system. This shuold usually contain a list of native
 //							 extensions that are required for specific platform i.e. for win32. Can be provided by GLFW.
 // - 
-b32 _GVkInit(Str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platform_exts_count, const char **platform_exts, b32 portable_subset, Arena scatch);
+b32 _GVkInit(Str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platform_exts_count, const char **platform_exts, b32 portable_subset, Arena arena);
 
 // Initialise a graphics device. The best one will be chosen. It is not i32ended for multiple
 // graphics devices to be created.
 // TODO: Making this vulkan specific is a pain - however, kinda necessary. Evaluate
 // this function signature in the future.
-GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData, b32 vsync, Arena scratch);
+GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData, b32 vsync, Arena *perm_arena, Arena scratch);
 
 // Vulkan-only cleanup function to cleanup any left-over Vulkan resources. Honestly, probably doesn't need
 // to be called as OS will clean up our resources for us (a lot faster than we can probs).
