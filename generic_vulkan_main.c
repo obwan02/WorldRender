@@ -18,16 +18,16 @@ typedef struct CreateSurfaceData {
 #define SCRATCH_ARENA_SIZE (1 * 1024 * 1024)
 static Str app_name = S("World-Scale Renderer");
 
-static b32 createSurface(VkInstance instance, void *data, VkSurfaceKHR *out) {
-	CreateSurfaceData *info = data;
-	
-	VkResult err = glfwCreateWindowSurface(instance, info->window, NULL, out);
+static VkSurfaceKHR createSurface(GLFWwindow *window) {
+	VkSurfaceKHR surf;
+	VkResult err = glfwCreateWindowSurface(_GVkGetInstance(), window, NULL, &surf);
+
 	if(err != VK_SUCCESS) {
 		log_err("Failed to create vulkan surfance from GLFW window");
-		return false;
+		return VK_NULL_HANDLE;
 	}
 
-	return true;
+	return surf;
 }
 
 int main(int argc, const char *argv[]) {
@@ -73,12 +73,10 @@ int main(int argc, const char *argv[]) {
 		return -1;
 	}
 
+	VkSurfaceKHR surface = createSurface(window);
+	if(surface == VK_NULL_HANDLE) return -1;
 
-	CreateSurfaceData surface_data = {
-		.window = window
-	};	
-
-	GVkDeviceOut dev = _GVkInitDevice(createSurface, &surface_data, false, &perm_arena, scratch_arena);
+	GVkDeviceOut dev = _GVkInitDevice(surface, false, &perm_arena, scratch_arena);
 	if(dev.err) {
 		log_err("Failed to initialise and create logical device. Exiting...");
 		return -1;

@@ -26,7 +26,11 @@ typedef struct GDevice {
 	VkSurfaceKHR vk_surf;
 	// Same here
 	VkSwapchainKHR vk_swapchain;
+
+	// @lifetime: permanent
 	VkImage *vk_swapchain_imgs;
+	// @lifetime: permanent
+	VkImageView *vk_swapchain_img_views;
 	u32 vk_swapchain_img_cnt;
 
 	VkFormat vk_swapchain_fmt;
@@ -42,8 +46,7 @@ typedef struct GVkDeviceOut {
 	b32 err;
 } GVkDeviceOut;
 
-// TODO: Just replace with vulkan surface parameter to _GVkInit.
-typedef b32(* _GVkCreateSurfaceFn)(VkInstance instance, void* userData, VkSurfaceKHR *out);
+VkInstance _GVkGetInstance(void);
 
 // Vulkan-only function to create vulkan instance. Should only be called from
 // vulkan specific code - should not be called in generic rendering code.
@@ -64,7 +67,7 @@ b32 _GVkInit(Str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platfo
 // graphics devices to be created.
 // TODO: Making this vulkan specific is a pain - however, kinda necessary. Evaluate
 // this function signature in the future.
-GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData, b32 vsync, Arena *perm_arena, Arena scratch);
+GVkDeviceOut _GVkInitDevice(VkSurfaceKHR surface, b32 vsync, Arena *perm_arena, Arena scratch);
 
 // Vulkan-only cleanup function to cleanup any left-over Vulkan resources. Honestly, probably doesn't need
 // to be called as OS will clean up our resources for us (a lot faster than we can probs).

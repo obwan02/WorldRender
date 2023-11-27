@@ -39,7 +39,7 @@ static SwapchainProps querySwapchain(VkPhysicalDevice, VkSurfaceKHR, b32, Arena)
 static PDeviceProps queryPDeviceProps(VkPhysicalDevice, VkSurfaceKHR, b32, Arena);
 
 // TODO: Make work for multi-threaded code
-static VkInstance _vk_instance;
+static VkInstance _vk_instance = VK_NULL_HANDLE;
 static VkDebugUtilsMessengerEXT _vk_dbg_messenger;
 
 static const char *wanted_instance_exts[] = {
@@ -53,6 +53,11 @@ static const char *wanted_device_exts[] = {
 static const char *wanted_layers[] = {
 		"VK_LAYER_KHRONOS_validation",
 };
+
+VkInstance _GVkGetInstance(void) {
+	ASSERT(_vk_instance != VK_NULL_HANDLE);
+	return _vk_instance;
+}
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 _vkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT msg_sev,
@@ -172,14 +177,8 @@ b32 _GVkInit(Str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platfo
   return true;
 }
 
-GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSurfaceFnUserData, b32 vsync_lock, Arena *perm, Arena scratch)  {
+GVkDeviceOut _GVkInitDevice(VkSurfaceKHR surface, b32 vsync_lock, Arena *perm, Arena scratch)  {
 	// Create the surface that the device will draw to
-	VkSurfaceKHR surface;
-	b32 res = createSurfaceFn(_vk_instance, createSurfaceFnUserData, &surface);
-	if(!res) {
-		log_err("Failed to create vulkan surface from user callback");
-	}
-
 	uint32_t count = 0;
 	static VkPhysicalDevice allDevices[128];
 	
@@ -308,7 +307,33 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 	u32 sc_img_cnt = 0;
 	vkGetSwapchainImagesKHR(logical_dev, swapchain, &sc_img_cnt, NULL);
 	VkImage *sc_imgs = New(perm, VkImage, sc_img_cnt);
+	VkImageView *sc_views = New(perm, VkImageView, sc_img_cnt);
 	vkGetSwapchainImagesKHR(logical_dev, swapchain, &sc_img_cnt, sc_imgs);
+
+	for(isize i = 0; i < sc_img_cnt; i++) {
+		VkImageViewCreateInfo img_view_create_inf = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.image = sc_imgs[i],
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = sc_props->fmt.format,
+			.components = {
+				.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.a = VK_COMPONENT_SWIZZLE_IDENTITY,
+			},
+
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1, 
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			}
+		};
+
+		vkCreateImageView(logical_dev, &img_view_create_inf, NULL, sc_views + i);
+	}
 
 	return (GVkDeviceOut) { 
 		.dev = {
@@ -321,6 +346,7 @@ GVkDeviceOut _GVkInitDevice(_GVkCreateSurfaceFn createSurfaceFn, void* createSur
 			.vk_swapchain_img_cnt = sc_img_cnt,
 			.vk_swapchain_fmt = sc_props->fmt.format,
 			.vk_swapchain_extent = sc_props->extent,
+			.vk_swapchain_img_views = sc_views,
 	}, .err = false};
 }
 
@@ -519,12 +545,21 @@ static b32 checkLayers(const char** layers, u32 layer_cnt, Arena scratch) {
 	return found_all;
 }
 
+void CreateShader(void) {
+
+
+}
+
 // TODO: Get rid of device from here
 // Maybe have some kind of automatic cleanup for vulkan objects??
 // Or maybe just store the device globally if we assume we only have one
 // device
 void _GVkCleanup(GDevice *device) {
 	if(device != NULL) {
+		for(isize i = 0; i < device->vk_swapchain_img_cnt; i++) {
+			vkDestroyImageView(device->vk_dev, device->vk_swapchain_img_views[i], NULL);
+		}
+
 		vkDestroySwapchainKHR(device->vk_dev, device->vk_swapchain, NULL);
 		vkDestroySurfaceKHR(_vk_instance, device->vk_surf, NULL);
 		vkDestroyDevice(device->vk_dev, NULL);
