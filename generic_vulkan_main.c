@@ -64,7 +64,7 @@ int main(int argc, const char *argv[]) {
 	// Vulkan specific graphics setup
 	// Ifdef required because apple needs to use MoltenVK
 #ifdef __APPLE__
-	b32 res = _GVkInit(app_name, 0, 0, 1, ext_cnt, exts, true, scratch);
+	b32 res = _GVkInit(app_name, 0, 0, 1, ext_cnt, exts, true, scratch_arena);
 #else
 	b32 res = _GVkInit(app_name, 0, 0, 1, ext_cnt, exts, false, scratch_arena);
 #endif
