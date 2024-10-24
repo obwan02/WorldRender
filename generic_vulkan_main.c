@@ -7,15 +7,10 @@
 #include "game/core.h"
 #include "game/graphics/vulkan_api.h"
 
-#include "game/graphics/vulkan_api.c"
-#include "game/core.c"
-
 typedef struct CreateSurfaceData {
 	GLFWwindow *window;
 } CreateSurfaceData;
 
-#define PERM_ARENA_SIZE (4 * 1024 * 1024)
-#define SCRATCH_ARENA_SIZE (1 * 1024 * 1024)
 static Str app_name = S("World-Scale Renderer");
 
 static VkSurfaceKHR createSurface(GLFWwindow *window) {
