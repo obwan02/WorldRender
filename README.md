@@ -42,21 +42,31 @@ microscopic details.
    permutations that can occur should should be equal to the
    number of platforms/architectures supported
 
-6. Game / Game Engine should be a "service to the OS". This
-   means there should be some platform layer glue that
-   passes all the necessary information (such as
-   foward-direction, memory, etc.). See Casey Muratori
-   Handmade Hero stuff. *Still not entirely sure on this*
+6. Platform specific functionality should be clearly
+   separated from core logic. If possible, most information
+   provided to the core logic should be passed from the OS,
+   to the core logic. There should rarely be situations in
+   which the core logic depends on an OS primitive (this is
+   because not all concepts are shared between OSes).
+
+   For example, asset loading logic needs to interact with
+   the OS in order to save/load data from a file system.
+   This should (probably) be provided through the platform 
+   layer, through function pointers. I.e. we can have some
+   functions:
+      - `void (*save_asset)(str name, u8* data, int len)`
+      - `void (*query_asset)(str name, int* len);`
+      - `void (*load_assert)(str name, u8* data_out);`
+
+   Which the core logic can then call. The alternative to
+   this would be to expose these functions the platform.h
+   header, which would also be a good solution.
+
 
 # Some Guidelines
 
-- Platform-dependent code is sometimes necessary. When using
-  platform specific code, first, write a generic version (if
-  possible) that can run on all platforms. Then, write the
-  platform specific version
-
 - To make things simple, all platform related code should be
-  resolved at compile time.
+  resolved at compile time. (apart from maybe SIMD stuff)
 
 - Platform depedent code should be written in its own file
 
