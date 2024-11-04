@@ -14,9 +14,9 @@
 
 #define STRINGIFY(x) #x
 #define STRINGIFY_EXPR(x) STRINGIFY(x)
-
 #define COUNT_OF(x) ((isize)(sizeof(x) / sizeof((x)[0])))
 
+// TODO: Replace dependency on libc in core
 #define log_dbg(x) fprintf(stdout, "[DBG] " x "\r\n")
 #define log_dbgf(x, ...) fprintf(stdout, "[DBG] " x "\r\n", __VA_ARGS__)
 #define log_err(x) fprintf(stderr, "[ERR] " x "\r\n")
@@ -39,6 +39,13 @@ typedef uintptr_t uptr;
 typedef ptrdiff_t isize;
 typedef size_t    usize;
 
+typedef int32_t	  err;
+
+#define NOERR        0
+#define ERR_UNKNOWN -1
+#define ERR_ENVIRON -2
+#include "platform/platform.h"
+
 // Represents a string
 //
 // Internally, an invariant is held, (and must be upheld)
@@ -52,6 +59,7 @@ struct str {
 // Arena design inpsired (copied from :))  
 // https://nullprogram.com/blog/2023/09/27/.
 
+#define ALLOC_NORMAL      0
 #define ALLOC_HARD_FAIL   1
 #define ALLOC_NOZERO      2
 
@@ -72,8 +80,4 @@ struct arena {
 void * arena_aligned_alloc(struct arena *a, isize size, isize align, isize count, u32 flags);
 struct arena arena_init(void *start, isize byte_count);
 
-#define hard_assert(expr) if (!(expr)) {                                                                                                           \
-    // TODO: replace puts with custom IO impl																																																			 \
-    puts("Assert failed: '" #expr "' line " STRINGIFY_EXPR(__LINE__) ", file " STRINGIFY_EXPR(__FILE__));																				   \
-    __break();                                                                                                                                     \
-  }
+#define hard_assert(expr) if (!(expr)) { puts("Assert failed: '" #expr "' line " STRINGIFY_EXPR(__LINE__) ", file " STRINGIFY_EXPR(__FILE__)); __break(); }

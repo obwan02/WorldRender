@@ -21,8 +21,8 @@ void * arena_aligned_alloc(struct arena *a, isize size, isize align, isize count
 	return result;
 }
 
-struct arena arena_init(void *start, isize byte_count) {
-	return (struct arena) {
+void arena_init(void *start, isize byte_count, struct arena *out) {
+	*out = (struct arena) {
 		.start = start,
 		.end = start + byte_count
 	};

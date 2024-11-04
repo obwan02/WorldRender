@@ -20,9 +20,7 @@
 //
 // This section should be kept short so that clarity
 // is retained 
-#ifdef WRLD_METAL
-#include "metal_api.h"
-#elif WRLD_VULKAN
+#ifdef WRLD_VULKAN
 #include "vulkan_api.h"
 #else
 #error Render API is not specified, please include (or make) \

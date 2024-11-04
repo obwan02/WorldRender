@@ -6,6 +6,9 @@
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
 
+#include "../graphics/vulkan_api.c"
+#include "../core/core.c"
+
 #define PERM_ARENA_SIZE (4 * 1024 * 1024)
 #define SCRATCH_ARENA_SIZE (1 * 1024 * 1024)
 
@@ -21,6 +24,9 @@ void __break(void) {
 
 	// Inspired by the scottt/debugbreak repo:
 	// https://github.com/scottt/debugbreak
+	
+	// TODO: refactor to separate into x86_64 linux stuff
+	// only
 
 #ifdef _MSC_VER
 	__debugbreak();
@@ -43,6 +49,7 @@ void __break(void) {
 #endif
 	
 #endif // ifdef _MSC_VER
+
 }
 
 extern struct str app_name;
@@ -57,17 +64,17 @@ int main(int argc, const char *argv[]) {
 	struct arena perm = arena_init(malloc(SCRATCH_ARENA_SIZE), SCRATCH_ARENA_SIZE);
 	hard_assert(perm.start);
 
-  if (!glfwInit()) {
-    log_err("Failed to initialise GLFW. Exiting ...");
-    return -1;
-  }
+	if (!glfwInit()) {
+	    log_err("Failed to initialise GLFW. Exiting ...");
+	    return -1;
+	}
 
 	// Hint that we are using vulkan, not opengl, so don't 
 	// create any opengl context
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-  GLFWwindow *window = glfwCreateWindow(680, 420, (const char *) app_name.str, NULL, NULL);
-  glfwMakeContextCurrent(window);
+	GLFWwindow *window = glfwCreateWindow(680, 420, (const char *) app_name.str, NULL, NULL);
+	glfwMakeContextCurrent(window);
 
 	// Get required vulkan extensions from glfw
 	u32 ext_cnt;
@@ -91,10 +98,10 @@ int main(int argc, const char *argv[]) {
 
 	GDevice device = dev.dev;
 
-  while (!glfwWindowShouldClose(window)) {
-    glfwPollEvents();
-    glfwSwapBuffers(window);
-  }
+	while (!glfwWindowShouldClose(window)) {
+		glfwPollEvents();
+		glfwSwapBuffers(window);
+	}
 
 	 _GVkCleanup(&device);
 	glfwDestroyWindow(window);
