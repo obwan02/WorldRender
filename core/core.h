@@ -23,8 +23,8 @@
 #define log_errf(x, ...) fprintf(stderr, "[ERR] " x "\r\n", __VA_ARGS__)
 #define log_warnf(x, ...) fprintf(stderr, "[WRN] " x "\r\n", __VA_ARGS__)
 
-#define true  ((b32)1)
-#define false ((b32)0)
+#define TRUE  ((b32)1)
+#define FALSE ((b32)0)
 
 typedef int8_t    i8;
 typedef uint8_t   u8;

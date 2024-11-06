@@ -52,7 +52,7 @@ struct phydev_props {
 
 static b32 check_device_extensions(VkPhysicalDevice, const char**, u32, struct arena);
 static b32 check_layers(const char **, u32, struct arena);
-static void query_swapchain(VkPhysicalDevice, VkSurfaceKHR, b32, struct arena);
+static void query_swapchain(VkPhysicalDevice, VkSurfaceKHR, b32, struct swapchain_props * struct arena);
 static void query_phydev_props(VkPhysicalDevice, VkSurfaceKHR, b32, struct phydev_props *, struct arena);
 
 
@@ -285,7 +285,7 @@ i32 _gvk_device_init(VkSurfaceKHR surface, b32 vsync_lock, struct gdevice *out_d
 	VkSwapchainKHR swapchain;
 	vkresult = vkCreateSwapchainKHR(logical_dev, &sc_create_inf, NULL, &swapchain);
 	if(vkresult != VK_SUCCESS) {
-		log_errf("Failed to create vulkan swapchain: %s", vk_StringResult(vkresult));
+		log_errf("Failed to create vulkan swapchain: %s", string_VkResult(vkresult));
 		return ERR_UNKNOWN;
 	}
 
@@ -384,8 +384,8 @@ static void query_phydev_props(VkPhysicalDevice device, VkSurfaceKHR surface, b3
 		}
 	}
 
-	result.has_wanted_extensions = checkDeviceExtensions(device, wanted_device_exts, COUNT_OF(wanted_device_exts), scratch);
-	result.swapchain_props = query_swapchain(device, surface, vsync_lock, scratch);
+	result.has_wanted_extensions = check_device_extensions(device, wanted_device_exts, COUNT_OF(wanted_device_exts), scratch);
+	query_swapchain(device, surface, vsync_lock, &result.swapchain_props, scratch);
 
 	// TODO: Re-enable for non macOS. M2 doesn't seem to support geometryShaders???
 	// result.meetsMinsRequirements = deviceProps.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader;
@@ -405,13 +405,13 @@ static void query_phydev_props(VkPhysicalDevice device, VkSurfaceKHR surface, b3
 	*out_props = result;
 }
 
-static b32 check_device_extensions(VkPhysicalDevice device, const char **exts, u32 exts_count, Arena scratch) {
+static b32 check_device_extensions(VkPhysicalDevice device, const char **exts, u32 exts_count, strcut arena scratch) {
 
 	u32 all_exts_count;
 	VkExtensionProperties *all_exts;
 
 	vkEnumerateDeviceExtensionProperties(device, NULL, &all_exts_count, NULL);
-	all_exts = New(&scratch, VkExtensionProperties, all_exts_count);
+	all_exts = arena_alloc(&scratch, VkExtensionProperties, all_exts_count, ALLOC_NORMAL);
 	vkEnumerateDeviceExtensionProperties(device, NULL, &all_exts_count, all_exts);
 
 	b32 found_all = true;
@@ -488,7 +488,7 @@ void query_swapchain(VkPhysicalDevice device, VkSurfaceKHR surface, b32 vsync_lo
 		sc_img_cnt = caps.maxImageCount;
 	}
 
-	return (SwapchainProps) {
+	return (struct swapchain_props) {
 			.fmt = sc_fmt,
 			.mode = sc_mode,
 			.extent = sc_extent,
@@ -499,37 +499,38 @@ void query_swapchain(VkPhysicalDevice device, VkSurfaceKHR surface, b32 vsync_lo
 	};
 }
 
-static b32 checkLayers(const char** layers, u32 layer_cnt, Arena scratch) {
-  u32 all_layer_cnt;
+static b32 check_layers(const char** layers, u32 layer_cnt, struct arena scratch) {
+	u32 all_layer_cnt;
 	VkLayerProperties *all_layers;
 
 	// Look at all the possible layers we can load,
 	// to see if we can load our desired layers
-  vkEnumerateInstanceLayerProperties(&all_layer_cnt, NULL);
+	vkEnumerateInstanceLayerProperties(&all_layer_cnt, NULL);
 	all_layers = New(&scratch, VkLayerProperties, layer_cnt);
-  vkEnumerateInstanceLayerProperties(&all_layer_cnt, all_layers);
+	vkEnumerateInstanceLayerProperties(&all_layer_cnt, all_layers);
+
 
 	b32 found_all = true;
-  // Search for the layers we want
-  // O(n^2) Tasty!
-  for (size_t i = 0; i < layer_cnt; i++) {
-    b32 found = false;
+	// Search for the layers we want
+	// O(n^2) Tasty!
+	for (size_t i = 0; i < layer_cnt; i++) {
+		b32 found = false;
 
-    for (size_t j = 0; j < layer_cnt; j++) {
-			Str compare = StrFromCStr(all_layers[j].layerName);
-			Str wanted = StrFromCStr(layers[i]);
+		for (size_t j = 0; j < layer_cnt; j++) {
+			const char *compare = all_layers[j].layerName;
+			const char *wanted = layers[i];
 
-      if (StrEq(compare, wanted)) {
-        found = true;
-        break;
-      }
-    }
+			if (StrEq(compare, wanted)) {
+				found = true;
+				break;
+			}
+		}
 
-    if (!found) {
-      log_warnf("Layer required, but doesn't exist: %s", layers[i]);
+		if (!found) {
+			log_warnf("Layer required, but doesn't exist: %s", layers[i]);
 			found_all = false;
-    }
-  }
+		}
+	}
 
 	return found_all;
 }

@@ -1,3 +1,4 @@
+#include "platform.h"
 #include "../core/core.h"
 #include "../graphics/vulkan_api.h"
 
@@ -18,6 +19,34 @@ void wrld_memcpy(void* dest, const void* src, isize byte_count) {
 
 void wrld_memset(void* dest, u8 value, isize byte_count) {
 	memset(dest, value, byte_count);
+}
+
+void wrld_memcmp(void *a, void *b, isize count, u32 mode) {
+	u8 *bytes_a = a;
+	u8 *bytes_b = b;
+	u8 *end_a = bytes_a + count;
+
+	// TODO: Add overflow assertions
+
+	if(mode == MEMCMP_FAST) {
+		for(; bytes_a != end_a; ++bytes_a, ++bytes_b) {
+			if(*bytes_a != *bytes_b) return FALSE;
+		}
+
+		return TRUE;
+	} else {
+		// assume mode == MEMCMP_CONST_TIME)
+
+		isize result = 0;
+		for(; bytes_a != end_a; ++bytes_a, ++bytes_b) {
+			result += *bytes_a ^ *bytes_b;
+		}
+
+		return result == 0;
+
+	}
+
+	hard_assert(false); // MODE UNDEFINED
 }
 
 void __break(void) {
