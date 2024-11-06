@@ -23,8 +23,22 @@
 #define log_errf(x, ...) fprintf(stderr, "[ERR] " x "\r\n", __VA_ARGS__)
 #define log_warnf(x, ...) fprintf(stderr, "[WRN] " x "\r\n", __VA_ARGS__)
 
+#define hard_assert(expr) if (!(expr)) { puts("Assert failed: '" #expr "' line " STRINGIFY_EXPR(__LINE__) ", file " STRINGIFY_EXPR(__FILE__)); __break(); }
+
 #define TRUE  ((b32)1)
 #define FALSE ((b32)0)
+
+#define ALLOC_NORMAL      0
+#define ALLOC_HARD_FAIL   1
+#define ALLOC_NOZERO      2
+
+#ifndef WRLD_TRACE_ALLOC
+#define arena_alloc(arena, T, n, flags) (T *) arena_aligned_alloc((arena), sizeof(T), _Alignof(T), (n), flags)
+#else
+// TODO: Implement allocation tracing
+#error "Allocation tracing has not been implemented!"
+#endif
+
 
 typedef int8_t    i8;
 typedef uint8_t   u8;
@@ -39,12 +53,9 @@ typedef uintptr_t uptr;
 typedef ptrdiff_t isize;
 typedef size_t    usize;
 
-typedef int32_t	  err;
-
 #define NOERR        0
 #define ERR_UNKNOWN -1
 #define ERR_ENVIRON -2
-#include "platform/platform.h"
 
 // Represents a string
 //
@@ -59,17 +70,6 @@ struct str {
 // Arena design inpsired (copied from :))  
 // https://nullprogram.com/blog/2023/09/27/.
 
-#define ALLOC_NORMAL      0
-#define ALLOC_HARD_FAIL   1
-#define ALLOC_NOZERO      2
-
-#ifndef WRLD_TRACE_ALLOC
-#define arena_alloc(arena, T, n, flags) (T *) arena_aligned_alloc((arena), sizeof(T), _Alignof(T), (n), flags)
-#else
-// TODO: Implement allocation tracing
-#error "Allocation tracing has not been implemented!"
-#endif
-
 // arena
 struct arena {
 	u8 *start, *end;
@@ -78,6 +78,9 @@ struct arena {
 };
 
 void * arena_aligned_alloc(struct arena *a, isize size, isize align, isize count, u32 flags);
-struct arena arena_init(void *start, isize byte_count);
+void arena_init(void *start, isize byte_count, struct arena* init);
 
-#define hard_assert(expr) if (!(expr)) { puts("Assert failed: '" #expr "' line " STRINGIFY_EXPR(__LINE__) ", file " STRINGIFY_EXPR(__FILE__)); __break(); }
+// TOOD: Maybe move to platform layer? This function is not really performance
+// sensitive so it shouldn't really matter.
+isize wrld_cstrlen(const char*);
+b32 wrld_cstreq(const char* a, const char* b);

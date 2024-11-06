@@ -66,7 +66,7 @@ microscopic details.
 # Some Guidelines
 
 - To make things simple, all platform related code should be
-  resolved at compile time. (apart from maybe SIMD stuff)
+  resolved at compile time. (apart from maybe SIMD stuff?)
 
 - Platform depedent code should be written in its own file
 
@@ -78,3 +78,11 @@ microscopic details.
 - linux is any platform that supports X11
 - vulkan is any platform that supports vulkan
 
+
+# NOTES!!
+
+- If speed could be improved / should be expected through
+  the use of SIMD, we can put a function in the 'platform'
+  folder, which allows us to use the native (libc)
+  components, or it allows us to use SIMD specific
+  operations.

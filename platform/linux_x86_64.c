@@ -21,10 +21,10 @@ void wrld_memset(void* dest, u8 value, isize byte_count) {
 	memset(dest, value, byte_count);
 }
 
-void wrld_memcmp(void *a, void *b, isize count, u32 mode) {
-	u8 *bytes_a = a;
-	u8 *bytes_b = b;
-	u8 *end_a = bytes_a + count;
+b32 wrld_memeq(const void *a, const void *b, isize count, u32 mode) {
+	const u8 *bytes_a = a;
+	const u8 *bytes_b = b;
+	const u8 *end_a = bytes_a + count;
 
 	// TODO: Add overflow assertions
 
@@ -46,7 +46,7 @@ void wrld_memcmp(void *a, void *b, isize count, u32 mode) {
 
 	}
 
-	hard_assert(false); // MODE UNDEFINED
+	hard_assert(FALSE); // Undefined mode
 }
 
 void __break(void) {
@@ -81,17 +81,21 @@ void __break(void) {
 
 }
 
-extern struct str app_name;
-extern i8 app_start(void);
+struct str app_name = {
+	.str = "Hello World!",
+	.len = COUNT_OF("Hello World!") - 1,
+};
+// extern i8 app_start(void);
 
 int main(int argc, const char *argv[]) {
 
 	// TODO: Move away from using libc eventually
-	struct arena scratch = arena_init(malloc(SCRATCH_ARENA_SIZE), SCRATCH_ARENA_SIZE);
+	struct arena scratch, perm;
+	arena_init(malloc(SCRATCH_ARENA_SIZE), SCRATCH_ARENA_SIZE, &scratch);
 	hard_assert(NULL != scratch.start);
 
-	struct arena perm = arena_init(malloc(SCRATCH_ARENA_SIZE), SCRATCH_ARENA_SIZE);
-	hard_assert(perm.start);
+	arena_init(malloc(SCRATCH_ARENA_SIZE), SCRATCH_ARENA_SIZE, &perm);
+	hard_assert(NULL != perm.start);
 
 	if (!glfwInit()) {
 	    log_err("Failed to initialise GLFW. Exiting ...");
@@ -106,33 +110,33 @@ int main(int argc, const char *argv[]) {
 	glfwMakeContextCurrent(window);
 
 	// Get required vulkan extensions from glfw
-	u32 ext_cnt;
-	const char** exts = glfwGetRequiredInstanceExtensions(&ext_cnt);
+	u32 ext_count;
+	const char** exts = glfwGetRequiredInstanceExtensions(&ext_count);
 
 	// Vulkan specific graphics setup
-	b32 res = _gvk_init(app_name, 0, 0, 1, ext_cnt, exts, false, scratch);
+	b32 res = _gvk_init(app_name, 0, 0, 1, ext_count, exts, FALSE, scratch);
 	if(!res) {
 		log_err("Exiting, due to error during Vulkan initialisation...");
 		return -1;
 	}
 
-	VkSurfaceKHR surface = createSurface(window);
+	VkSurfaceKHR surface;
+	VkResult vkerr = glfwCreateWindowSurface(_gvk_get_instance(), window, NULL, &surface);
 	if(surface == VK_NULL_HANDLE) return -1;
 
-	GVKdevice = _GVkInitDevice(surface, false, &perm_arena, scratch_arena);
-	if(dev.err) {
+	struct gdevice device;
+	i32 err = _gvk_device_init(surface, FALSE, FALSE, &device, &perm, scratch);
+	if(err != NOERR) {
 		log_err("Failed to initialise and create logical device. Exiting...");
 		return -1;
 	}
-
-	GDevice device = dev.dev;
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 		glfwSwapBuffers(window);
 	}
 
-	 _GVkCleanup(&device);
+	 _gvk_device_cleanup(&device);
 	glfwDestroyWindow(window);
 	glfwTerminate();
 

@@ -17,15 +17,15 @@ static VkInstance _vk_instance = VK_NULL_HANDLE;
 static VkDebugUtilsMessengerEXT _vk_dbg_messenger;
 
 static const char *wanted_instance_exts[] = {
-		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+	VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 };
 
 static const char *wanted_device_exts[] = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 
 static const char *wanted_layers[] = {
-		"VK_LAYER_KHRONOS_validation",
+	"VK_LAYER_KHRONOS_validation",
 };
 
 struct swapchain_props {
@@ -52,7 +52,7 @@ struct phydev_props {
 
 static b32 check_device_extensions(VkPhysicalDevice, const char**, u32, struct arena);
 static b32 check_layers(const char **, u32, struct arena);
-static void query_swapchain(VkPhysicalDevice, VkSurfaceKHR, b32, struct swapchain_props * struct arena);
+static void query_swapchain(VkPhysicalDevice, VkSurfaceKHR, b32, struct swapchain_props *, struct arena);
 static void query_phydev_props(VkPhysicalDevice, VkSurfaceKHR, b32, struct phydev_props *, struct arena);
 
 
@@ -79,7 +79,11 @@ _vkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT msg_sev,
   return 0;
 }
 
-b32 _gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platform_exts_count, const char **platform_exts, b32 portable_flag, struct arena scratch) {
+VkInstance _gvk_get_instance() {
+	return _vk_instance;
+}
+
+i32 _gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platform_exts_count, const char **platform_exts, b32 portable_flag, struct arena scratch) {
 							  
 	hard_assert(app_name.str != NULL);
 	if (platform_exts_count) {
@@ -115,13 +119,38 @@ b32 _gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u3
 		.pNext = &dbg_callback_create_info // Have debugging before instance is created
 	};
 
-	isize all_extensions_count = COUNT_OF(wanted_instance_exts) + platform_exts_count;
+	b32 should_add_portable_ext = FALSE;
+
+	if(portable_flag) {
+		b32 has_portable_ext = FALSE;
+		for(isize i = 0; i < platform_exts_count; i++) {
+			if(wrld_cstreq(platform_exts[i], VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
+				has_portable_ext = TRUE;
+				break;
+			}
+		}
+
+		for(isize i = 0; i < COUNT_OF(wanted_instance_exts); i++) {
+			if(wrld_cstreq(wanted_instance_exts[i], VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
+				has_portable_ext = TRUE;
+				break;
+			}
+		}
+
+		should_add_portable_ext = !has_portable_ext;
+	}
+
+	isize all_extensions_count = COUNT_OF(wanted_instance_exts) + platform_exts_count + (should_add_portable_ext ? 1 : 0);
 	const char **all_extensions = arena_alloc(&scratch, const char *, all_extensions_count, ALLOC_NORMAL);
 
 	wrld_memcpy(all_extensions, wanted_instance_exts, sizeof(wanted_instance_exts));
 	wrld_memcpy(all_extensions + COUNT_OF(wanted_instance_exts), platform_exts, platform_exts_count * sizeof(const char *));
+	if(portable_flag && should_add_portable_ext) {
+		log_dbg("Adding portability extension, as the portable flag is set.");
+		all_extensions[all_extensions_count - 1] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+	}
 
-	log_dbg("Vulkan Instance Layers Requested: ");
+	log_dbg("Vulkan Instance Extensions Requested: ");
 	for(isize i = 0; i < all_extensions_count; i++) {
 		log_dbgf("\t- %s", all_extensions[i]);
 	}
@@ -129,9 +158,16 @@ b32 _gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u3
 	instance_create_info.enabledExtensionCount = all_extensions_count;
 	instance_create_info.ppEnabledExtensionNames = all_extensions;
 
+	log_dbg("Vulkan Instance Layers Requested: ");
+	for(isize i = 0; i < COUNT_OF(wanted_layers); i++) {
+		log_dbgf("\t- %s", wanted_layers[i]);
+	}
 	// Ignore any errors relating to not loading
 	// layers :)
-	(void) check_layers(wanted_layers, COUNT_OF(wanted_layers), scratch);
+	if(!check_layers(wanted_layers, COUNT_OF(wanted_layers), scratch)) {
+		log_err("Couldn't load all requested layers, cannot initialise vulkan!");
+		return ERR_ENVIRON;
+	}
 	instance_create_info.ppEnabledLayerNames = wanted_layers;
 	instance_create_info.enabledLayerCount = COUNT_OF(wanted_layers);
 
@@ -143,21 +179,21 @@ b32 _gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u3
 	VkResult result = vkCreateInstance(&instance_create_info, NULL, &_vk_instance);
 	if (result != VK_SUCCESS) {
 		log_err("Failed to create vkInstance");
-		return false;
+		return ERR_UNKNOWN;
 	}
 
 	// Setup debugging callbacks
 	PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(_vk_instance, "vkCreatDebugUtilsMessengerEXT");
 	if (vkCreateDebugUtilsMessengerEXT && vkCreateDebugUtilsMessengerEXT(_vk_instance, &dbg_callback_create_info, NULL, &_vk_dbg_messenger) != VK_SUCCESS) {
 		log_err("Failed to register vulkan debug callback");
-		return false;
+		return ERR_UNKNOWN;
 	}
 
 	log_dbg("Vulkan Initialised!");
-	return true;
+	return NOERR;
 }
 
-i32 _gvk_device_init(VkSurfaceKHR surface, b32 vsync_lock, struct gdevice *out_device, struct arena *perm, struct arena scratch) {
+i32 _gvk_device_init(VkSurfaceKHR surface, b32 vsync_lock, b32 portable_flag, struct gdevice *out_device, struct arena *perm, struct arena scratch) {
 	
 	// Create the surface that the device will draw to
 	u32 device_count = 0;
@@ -206,9 +242,9 @@ i32 _gvk_device_init(VkSurfaceKHR surface, b32 vsync_lock, struct gdevice *out_d
 
 	for(isize i = 0; i < COUNT_OF(all_qfam_idxs); i++) {
 
-		b32 dup = false;
+		b32 dup = FALSE;
 		for(isize j = 0; j < q_create_infos_cnt; j++) {
-			if(all_qfam_idxs[i] == q_create_infos[j].queueFamilyIndex) dup = true;
+			if(all_qfam_idxs[i] == q_create_infos[j].queueFamilyIndex) dup = TRUE;
 		}
 
 		if(dup) continue;
@@ -241,8 +277,17 @@ i32 _gvk_device_init(VkSurfaceKHR surface, b32 vsync_lock, struct gdevice *out_d
 	hard_assert(check_device_extensions(chosen_dev, wanted_device_exts, COUNT_OF(wanted_device_exts), scratch));
 	hard_assert(chosen_dev_props.swapchain_props.meets_min_reqs);
 
-	create_info.ppEnabledExtensionNames = wanted_device_exts;
-	create_info.enabledExtensionCount = COUNT_OF(wanted_device_exts);
+	isize all_exts_count = COUNT_OF(wanted_device_exts);
+	const char **all_exts = wanted_device_exts;
+	if(portable_flag) {
+		all_exts_count += 1;
+		all_exts = arena_alloc(&scratch, const char*, all_exts_count, ALLOC_NORMAL);
+		wrld_memcpy(all_exts, wanted_device_exts, sizeof(wanted_device_exts));
+		all_exts[all_exts_count - 1] = "VK_KHR_portability_subset";
+	}
+
+	create_info.ppEnabledExtensionNames = all_exts;
+	create_info.enabledExtensionCount = all_exts_count;
 
 	VkDevice logical_dev;
 	vkresult = vkCreateDevice(chosen_dev, &create_info, NULL, &logical_dev);
@@ -346,8 +391,8 @@ static void query_phydev_props(VkPhysicalDevice device, VkSurfaceKHR surface, b3
 	vkGetPhysicalDeviceFeatures(device, &dev_feats);
 
 	struct phydev_props result = {
-		.has_wanted_extensions = false,
-		.meets_min_reqs = false,
+		.has_wanted_extensions = FALSE,
+		.meets_min_reqs = FALSE,
 		.graphics_qfam_idx = NULL_QUEUE_FAM_INDEX,
 		.present_qfam_idx = NULL_QUEUE_FAM_INDEX,
 		.score = -1
@@ -366,7 +411,7 @@ static void query_phydev_props(VkPhysicalDevice device, VkSurfaceKHR surface, b3
 			result.graphics_qfam_idx = i;
 		}
 
-		VkBool32 queueFamilySupportsPresent = false;
+		VkBool32 queueFamilySupportsPresent = FALSE;
 		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &queueFamilySupportsPresent);
 
 		if(queueFamilySupportsPresent) {
@@ -397,7 +442,7 @@ static void query_phydev_props(VkPhysicalDevice device, VkSurfaceKHR surface, b3
 		 result.present_qfam_idx != NULL_QUEUE_FAM_INDEX  &&
 		 result.has_wanted_extensions &&
 		 result.swapchain_props.meets_min_reqs) {
-		 result.meets_min_reqs = true;
+		 result.meets_min_reqs = TRUE;
 	}
 	 
 	// No ranking system yet: TODO
@@ -405,7 +450,7 @@ static void query_phydev_props(VkPhysicalDevice device, VkSurfaceKHR surface, b3
 	*out_props = result;
 }
 
-static b32 check_device_extensions(VkPhysicalDevice device, const char **exts, u32 exts_count, strcut arena scratch) {
+static b32 check_device_extensions(VkPhysicalDevice device, const char **exts, u32 exts_count, struct arena scratch) {
 
 	u32 all_exts_count;
 	VkExtensionProperties *all_exts;
@@ -414,14 +459,16 @@ static b32 check_device_extensions(VkPhysicalDevice device, const char **exts, u
 	all_exts = arena_alloc(&scratch, VkExtensionProperties, all_exts_count, ALLOC_NORMAL);
 	vkEnumerateDeviceExtensionProperties(device, NULL, &all_exts_count, all_exts);
 
-	b32 found_all = true;
+	b32 found_all = TRUE;
 	for(size_t i = 0; i < exts_count; i++) {
-		b32 found = false;
+		b32 found = FALSE;
 		for(size_t j = 0; j < all_exts_count; j++) {
-			Str compare = StrFromCStr(all_exts[j].extensionName);
-			Str wanted = StrFromCStr(exts[i]);
-			if(StrEq(compare, wanted))
-				found = true;
+			const char *compare = all_exts[j].extensionName;
+			const char *wanted = exts[i];
+
+			if(wrld_cstreq(compare, wanted)) {
+				found = TRUE;
+			}
 		}
 
 		found_all = found_all && found;
@@ -434,24 +481,24 @@ static b32 check_device_extensions(VkPhysicalDevice device, const char **exts, u
 	return found_all;
 }
 
-void query_swapchain(VkPhysicalDevice device, VkSurfaceKHR surface, b32 vsync_lock,  struct swapchain_props *out_props, struct arena *scratch) {
+void query_swapchain(VkPhysicalDevice device, VkSurfaceKHR surface, b32 vsync_lock, struct swapchain_props *out_props, struct arena scratch) {
 	VkSurfaceCapabilitiesKHR caps;
 	VkSurfaceFormatKHR *fmts;
 	VkPresentModeKHR *present_modes;
-	u32 fmt_cnt, mode_cnt;
+	u32 fmt_count, mode_count;
 
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &caps);
-	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &fmt_cnt, NULL);
-	fmts = New(&scratch, VkSurfaceFormatKHR, fmt_cnt);
-	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &fmt_cnt, fmts);
-	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &mode_cnt, NULL);
-	present_modes = New(&scratch, VkPresentModeKHR, mode_cnt);
-	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &mode_cnt, present_modes);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &fmt_count, NULL);
+	fmts = arena_alloc(&scratch, VkSurfaceFormatKHR, fmt_count, ALLOC_NORMAL);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &fmt_count, fmts);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &mode_count, NULL);
+	present_modes = arena_alloc(&scratch, VkPresentModeKHR, mode_count, ALLOC_NORMAL);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &mode_count, present_modes);
 
-	hard_assert(fmt_cnt > 0);
+	hard_assert(fmt_count > 0);
 	VkSurfaceFormatKHR sc_fmt = fmts[0];
 
-	for(isize i = 0; i < fmt_cnt; i++)
+	for(isize i = 0; i < fmt_count; i++)
 		if((fmts[i].format == VK_FORMAT_B8G8R8A8_SRGB ||
 				fmts[i].format == VK_FORMAT_R8G8B8A8_SRGB) &&
 			 fmts[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
@@ -461,7 +508,7 @@ void query_swapchain(VkPhysicalDevice device, VkSurfaceKHR surface, b32 vsync_lo
 	VkPresentModeKHR sc_mode = VK_PRESENT_MODE_FIFO_KHR;
 
 	if(!vsync_lock)
-		for(isize i = 0; i < mode_cnt; i++)
+		for(isize i = 0; i < mode_count; i++)
 			if(present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
 				sc_mode = VK_PRESENT_MODE_MAILBOX_KHR;
 
@@ -478,57 +525,57 @@ void query_swapchain(VkPhysicalDevice device, VkSurfaceKHR surface, b32 vsync_lo
 	}
 
 	// Prefer triple-buffering, otherwise take the min
-	u32 sc_img_cnt = 3 < caps.minImageCount ? caps.minImageCount : 3;
-	log_dbgf("Using %d images for the swapchain", sc_img_cnt);
+	u32 sc_img_count = 3 < caps.minImageCount ? caps.minImageCount : 3;
+	log_dbgf("Using %d images for the swapchain", sc_img_count);
 
 	// Just double-check we aren't over the maximum
 	// Don't think this is necessary
 	if(caps.maxImageCount != 0 /* = 0 means we have inf images */ &&
-		 sc_img_cnt > caps.maxImageCount) {
-		sc_img_cnt = caps.maxImageCount;
+			sc_img_count > caps.maxImageCount) {
+		sc_img_count = caps.maxImageCount;
 	}
 
-	return (struct swapchain_props) {
-			.fmt = sc_fmt,
-			.mode = sc_mode,
-			.extent = sc_extent,
-			.img_cnt = sc_img_cnt,
-			.pre_transform = caps.currentTransform,
+	*out_props = (struct swapchain_props) {
+		.fmt = sc_fmt,
+		.mode = sc_mode,
+		.extent = sc_extent,
+		.img_cnt = sc_img_count,
+		.pre_transform = caps.currentTransform,
 
-			.meets_min_reqs = (fmt_cnt > 0 && mode_cnt > 0)
+		.meets_min_reqs = (fmt_count > 0 && mode_count > 0)
 	};
 }
 
-static b32 check_layers(const char** layers, u32 layer_cnt, struct arena scratch) {
-	u32 all_layer_cnt;
+static b32 check_layers(const char** layers, u32 layer_count, struct arena scratch) {
+	u32 all_layer_count;
 	VkLayerProperties *all_layers;
 
 	// Look at all the possible layers we can load,
 	// to see if we can load our desired layers
-	vkEnumerateInstanceLayerProperties(&all_layer_cnt, NULL);
-	all_layers = New(&scratch, VkLayerProperties, layer_cnt);
-	vkEnumerateInstanceLayerProperties(&all_layer_cnt, all_layers);
+	vkEnumerateInstanceLayerProperties(&all_layer_count, NULL);
+	all_layers = arena_alloc(&scratch, VkLayerProperties, all_layer_count, ALLOC_NORMAL);
+	vkEnumerateInstanceLayerProperties(&all_layer_count, all_layers);
 
 
-	b32 found_all = true;
+	b32 found_all = TRUE;
 	// Search for the layers we want
 	// O(n^2) Tasty!
-	for (size_t i = 0; i < layer_cnt; i++) {
-		b32 found = false;
+	for (isize i = 0; i < layer_count; i++) {
+		b32 found = FALSE;
 
-		for (size_t j = 0; j < layer_cnt; j++) {
+		for (isize j = 0; j < all_layer_count; j++) {
 			const char *compare = all_layers[j].layerName;
 			const char *wanted = layers[i];
 
-			if (StrEq(compare, wanted)) {
-				found = true;
+			if(wrld_cstreq(compare, wanted)) {
+				found = TRUE;
 				break;
 			}
 		}
 
 		if (!found) {
 			log_warnf("Layer required, but doesn't exist: %s", layers[i]);
-			found_all = false;
+			found_all = FALSE;
 		}
 	}
 
@@ -544,22 +591,21 @@ void CreateShader(void) {
 // Maybe have some kind of automatic cleanup for vulkan objects??
 // Or maybe just store the device globally if we assume we only have one
 // device
-void _GVkCleanup(GDevice *device) {
+void _gvk_device_cleanup(struct gdevice *device) {
 	if(device != NULL) {
-		for(isize i = 0; i < device->vk_swapchain_img_cnt; i++) {
+		for(isize i = 0; i < device->vk_swapchain_img_count; i++) {
 			vkDestroyImageView(device->vk_dev, device->vk_swapchain_img_views[i], NULL);
 		}
 
 		vkDestroySwapchainKHR(device->vk_dev, device->vk_swapchain, NULL);
-		vkDestroySurfaceKHR(_vk_instance, device->vk_surf, NULL);
+		vkDestroySurfaceKHR(_vk_instance, device->vk_surface, NULL);
 		vkDestroyDevice(device->vk_dev, NULL);
 	}
 
-  PFN_vkDestroyDebugUtilsMessengerEXT func =
-      (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-          _vk_instance, "vkDestroyDebugUtilsMessengerEXT");
-  if (func != NULL) {
-    func(_vk_instance, _vk_dbg_messenger, NULL);
-  }
-  vkDestroyInstance(_vk_instance, NULL);
+	PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(_vk_instance, "vkDestroyDebugUtilsMessengerEXT");
+	if (func != NULL) {
+		func(_vk_instance, _vk_dbg_messenger, NULL);
+	}
+
+	vkDestroyInstance(_vk_instance, NULL);
 }

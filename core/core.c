@@ -6,7 +6,7 @@ void * arena_aligned_alloc(struct arena *a, isize size, isize align, isize count
 	isize pad = -(uptr)a->start & (align - 1);
 
 	if(count > (available - pad)/size) {
-		if(flags & ALLOC_HARD_FAIL) { hard_assert(false); }
+		if(flags & ALLOC_HARD_FAIL) { hard_assert(FALSE); }
 		else { return NULL; }
 	}
 
@@ -26,4 +26,19 @@ void arena_init(void *start, isize byte_count, struct arena *out) {
 		.start = start,
 		.end = start + byte_count
 	};
+}
+
+isize wrld_cstrlen(const char* str) {
+	isize size = 0;
+	while(*str++) ++size;
+
+	return size;
+}
+
+b32 wrld_cstreq(const char *a, const char *b) {
+	isize sizea = wrld_cstrlen(a);
+	isize sizeb = wrld_cstrlen(b);
+
+	if(sizea != sizeb) return FALSE;
+	return wrld_memeq(a, b, sizea, MEMCMP_FAST);
 }

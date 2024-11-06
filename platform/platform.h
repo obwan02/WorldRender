@@ -9,5 +9,5 @@
 
 void wrld_memcpy(void* dest, const void* src, isize byte_count);
 void wrld_memset(void* dest, u8 value, isize byte_count);
-b32 wrld_memcmp(void *a, void * b, isize count, u32 mode);
+b32 wrld_memeq(const void *a, const void * b, isize count, u32 mode);
 void __break();
