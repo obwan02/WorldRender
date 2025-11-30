@@ -8,7 +8,6 @@
 #include "vulkan_api.h"
 #include "platform/platform.h"
 #include <vulkan/vulkan_core.h> 
-#include <vulkan/vk_enum_string_helper.h>
 
 #define NULL_QUEUE_FAM_INDEX UINT32_MAX
 
@@ -79,11 +78,11 @@ _vkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT msg_sev,
   return 0;
 }
 
-VkInstance _gvk_get_instance() {
+VkInstance gvk_platform_get_instance() {
 	return _vk_instance;
 }
 
-i32 _gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platform_exts_count, const char **platform_exts, b32 portable_flag, struct arena scratch) {
+i32 gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platform_exts_count, const char **platform_exts, b32 portable_flag, struct arena scratch) {
 							  
 	hard_assert(app_name.str != NULL);
 	if (platform_exts_count) {
@@ -162,8 +161,7 @@ i32 _gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u3
 	for(isize i = 0; i < COUNT_OF(wanted_layers); i++) {
 		log_dbgf("\t- %s", wanted_layers[i]);
 	}
-	// Ignore any errors relating to not loading
-	// layers :)
+	
 	if(!check_layers(wanted_layers, COUNT_OF(wanted_layers), scratch)) {
 		log_err("Couldn't load all requested layers, cannot initialise vulkan!");
 		return ERR_ENVIRON;
@@ -193,7 +191,7 @@ i32 _gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u3
 	return NOERR;
 }
 
-i32 _gvk_device_init(VkSurfaceKHR surface, b32 vsync_lock, b32 portable_flag, struct gdevice *out_device, struct arena *perm, struct arena scratch) {
+i32 gvk_platform_device_init(VkSurfaceKHR surface, b32 vsync_lock, b32 portable_flag, struct gdevice *out_device, struct arena *perm, struct arena scratch) {
 	
 	// Create the surface that the device will draw to
 	u32 device_count = 0;
@@ -292,7 +290,7 @@ i32 _gvk_device_init(VkSurfaceKHR surface, b32 vsync_lock, b32 portable_flag, st
 	VkDevice logical_dev;
 	vkresult = vkCreateDevice(chosen_dev, &create_info, NULL, &logical_dev);
 	if(vkresult != VK_SUCCESS) {
-		log_errf("Failed to create logical vulkan device: %s", string_VkResult(vkresult));
+		log_errf("Failed to create logical vulkan device: %ld", vkresult);
 		return ERR_UNKNOWN;
 	}
 
@@ -330,7 +328,7 @@ i32 _gvk_device_init(VkSurfaceKHR surface, b32 vsync_lock, b32 portable_flag, st
 	VkSwapchainKHR swapchain;
 	vkresult = vkCreateSwapchainKHR(logical_dev, &sc_create_inf, NULL, &swapchain);
 	if(vkresult != VK_SUCCESS) {
-		log_errf("Failed to create vulkan swapchain: %s", string_VkResult(vkresult));
+		log_errf("Failed to create vulkan swapchain: %ld", vkresult);
 		return ERR_UNKNOWN;
 	}
 
@@ -591,7 +589,7 @@ void CreateShader(void) {
 // Maybe have some kind of automatic cleanup for vulkan objects??
 // Or maybe just store the device globally if we assume we only have one
 // device
-void _gvk_device_cleanup(struct gdevice *device) {
+void gvk_device_cleanup(struct gdevice *device) {
 	if(device != NULL) {
 		for(isize i = 0; i < device->vk_swapchain_img_count; i++) {
 			vkDestroyImageView(device->vk_dev, device->vk_swapchain_img_views[i], NULL);

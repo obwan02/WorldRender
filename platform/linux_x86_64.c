@@ -35,7 +35,7 @@ b32 wrld_memeq(const void *a, const void *b, isize count, u32 mode) {
 
 		return TRUE;
 	} else {
-		// assume mode == MEMCMP_CONST_TIME)
+		// assume mode == MEMCMP_CONST_TIME
 
 		isize result = 0;
 		for(; bytes_a != end_a; ++bytes_a, ++bytes_b) {
@@ -114,18 +114,18 @@ int main(int argc, const char *argv[]) {
 	const char** exts = glfwGetRequiredInstanceExtensions(&ext_count);
 
 	// Vulkan specific graphics setup
-	b32 res = _gvk_init(app_name, 0, 0, 1, ext_count, exts, FALSE, scratch);
-	if(!res) {
+	i32 res = gvk_init(app_name, 0, 0, 1, ext_count, exts, FALSE, scratch);
+	if(res != NOERR) {
 		log_err("Exiting, due to error during Vulkan initialisation...");
 		return -1;
 	}
 
 	VkSurfaceKHR surface;
-	VkResult vkerr = glfwCreateWindowSurface(_gvk_get_instance(), window, NULL, &surface);
+	VkResult vkerr = glfwCreateWindowSurface(gvk_platform_get_instance(), window, NULL, &surface);
 	if(surface == VK_NULL_HANDLE) return -1;
 
 	struct gdevice device;
-	i32 err = _gvk_device_init(surface, FALSE, FALSE, &device, &perm, scratch);
+	i32 err = gvk_platform_device_init(surface, FALSE, FALSE, &device, &perm, scratch);
 	if(err != NOERR) {
 		log_err("Failed to initialise and create logical device. Exiting...");
 		return -1;
@@ -136,7 +136,7 @@ int main(int argc, const char *argv[]) {
 		glfwSwapBuffers(window);
 	}
 
-	 _gvk_device_cleanup(&device);
+	 gvk_device_cleanup(&device);
 	glfwDestroyWindow(window);
 	glfwTerminate();
 

@@ -41,7 +41,7 @@ struct gdevice {
 /* struct GShader {}; */
 /* struct GBufferDescription {}; */
 
-VkInstance _gvk_get_instance();
+VkInstance gvk_platform_get_instance();
 
 // Vulkan-only function to create vulkan instance. Should only be called from
 // vulkan specific code - should not be called in generic rendering code.
@@ -58,7 +58,7 @@ VkInstance _gvk_get_instance();
 // - portable_flag: Sets the VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR on VkInstanceCreateInfo. If set and the VK_KHR_portable_enumeration extension
 //		    hasn't been provided, then it will be provided.
 // - scratch: Used for temporary allocations during initialisation
-i32 _gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platform_exts_count, const char **platform_exts, b32 portable_flag, struct arena scratch);
+i32 gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u32 platform_exts_count, const char **platform_exts, b32 portable_flag, struct arena scratch);
 
 // Initialise a graphics device. The best one will be chosen. It is not intended for multiple
 // graphics devices to be created.
@@ -67,9 +67,9 @@ i32 _gvk_init(struct str app_name, i32 ver_maj, i32 ver_minor, i32 ver_patch, u3
 // this function signature in the future.
 //
 // TODO: Add platform specific device extensions?
-i32 _gvk_device_init(VkSurfaceKHR surface, b32 vsync_lock, b32 portable_flag, struct gdevice *out, struct arena *perm, struct arena scratch);
+i32 gvk_platform_device_init(VkSurfaceKHR surface, b32 vsync_lock, b32 portable_flag, struct gdevice *out, struct arena *perm, struct arena scratch);
 
 // Vulkan-only cleanup function to cleanup any left-over Vulkan resources. Honestly, probably doesn't need
 // to be called as OS will clean up our resources for us (a lot faster than we can probs).
-void _gvk_device_cleanup(struct gdevice *device);
+void gvk_device_cleanup(struct gdevice *device);
 
